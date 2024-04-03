@@ -1,9 +1,15 @@
 [package]
 name = "meme"
+authors = ["Junshuang Hu <hjshuang@hnu.edu.cn>"]
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "unset"
+description = "Membrane computing system emulator"
+readme = "README.md"
+homepage = "unset"
+repository = "unset"
+keywords = ["Membrane computing", "P system", "Biocomputing"]
+categories = ["libraries"]
 
 [dependencies]
 crossbeam-channel = "0.5"
