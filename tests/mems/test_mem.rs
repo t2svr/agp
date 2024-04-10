@@ -1,15 +1,14 @@
 use std::{thread, time::Duration};
 
-use meme::{core::*, mems::base_mem::BaseMem, objs::base_objs::{BaseObj, TestRuleA, TestRuleB}};
+use meme::{core::*, mems::base_mem::BaseMem, objs::base_objs::BaseObj};
+use uuid::Uuid;
 
 #[test]
 pub fn basics() {
     let (s, _r) = crossbeam_channel::unbounded();
 
-    let mut m = BaseMem::<i32>::new(s);
-    let rule_a = Box::new(TestRuleA::<i32>::new());
-    let rule_b = Box::new(TestRuleB::<i32>::new());
-    let mut obj_a = Box::new(BaseObj::<i32>::new());
+    let mut m = BaseMem::<i32, Uuid>::new(s, Uuid::new_v4());
+    let mut obj_a = Box::new(BaseObj::<i32, Uuid>::new(Uuid::new_v4()));
     obj_a.push_data(666);
     obj_a.push_data(777);
 
@@ -22,8 +21,6 @@ pub fn basics() {
         (r, m)
     });
 
-    assert!(s.send(Operation { op_type: OperationType::RuleAdd, target_id: Default::default(), data: MsgDataObj::Rule(rule_a) }).is_ok());
-    assert!(s.send(Operation { op_type: OperationType::RuleAdd, target_id: Default::default(), data: MsgDataObj::Rule(rule_b) }).is_ok());
     assert!(s.send(Operation { op_type: OperationType::ObjAdd, target_id: obj_a.get_id(), data: MsgDataObj::Obj(obj_a) }).is_ok());
 
     thread::sleep(Duration::from_secs(3));

@@ -1,3 +1,15 @@
 pub fn hello_meme() -> &'static str {
-    "hello meme."
+"
+This is Membrane Emulator(meme) lib.
+
+////////////////////////////////////////
+//                                   //
+//  %inclined 《studio.H》          //
+//  double mian{} (                //
+//    paintf(\"Hell world!\");      //
+//    remake0                    //
+//  )                           //
+//                             //
+////////////////////////////////
+"
 }

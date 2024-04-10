@@ -1,25 +1,26 @@
-use std::{collections::HashMap, thread};
-
-use uuid::Uuid;
-
 use crate::errors::MemError;
+
+use std::{collections::HashMap, fmt::Display, thread};
+use std::hash::Hash;
 
 pub enum ObjType {
     Normal, Rule, Membrane
 }
 
-pub enum MsgDataObj<T: Clone> {
-    Obj(Box<dyn IObj<T> + Send>),
-    Rule(Box<dyn IRule<T> + Send>),
-    Membrane(Box<dyn IMem<T> + Send>),
-    Sender(crossbeam_channel::Sender<Operation<T>>),
-    Inners((HashMap<Uuid, crossbeam_channel::Sender<Operation<T>>>, HashMap<Uuid, thread::JoinHandle<Result<bool, MemError>>>)),
+pub enum MsgDataObj<T: Clone, IdType: Clone + Eq + Hash + Display> {
+    Obj(Box<dyn IObj<T, IdType> + Send>),
+    Objs(Vec<Box<dyn IObj<T, IdType> + Send>>),
+    Rule(Box<dyn IRule<T, IdType> + Send>),
+    Rules(Vec<Box<dyn IRule<T, IdType> + Send>>),
+    Membrane(Box<dyn IMem<T, IdType> + Send>),
+    Sender(crossbeam_channel::Sender<Operation<T, IdType>>),
+    Inners((HashMap<IdType, crossbeam_channel::Sender<Operation<T, IdType>>>, HashMap<IdType, thread::JoinHandle<Result<bool, MemError>>>)),
     None
 }
 
 pub enum OperationType {
-    /// 在当前膜内 添加 一个id为target_id的对象p_obj  
     ObjAdd,
+    ObjAddBatch,
     /// 在当前膜内 移除 一个id为target_id的对象p_obj  
     ObjRemove,
     /// 向 膜外 id为target_id的对象传递对象p_obj, 可以跨越多层  
@@ -28,6 +29,7 @@ pub enum OperationType {
     ObjIn,
 
     RuleAdd,
+    RuleAddBatch,
 
     /// 在 膜内 添加一个id为target_id的膜p_mem
     MemAdd,
@@ -39,42 +41,44 @@ pub enum OperationType {
     Stop
 }
 
-pub struct Operation<T: Clone> {
+pub struct Operation<T: Clone,  IdType: Clone + Eq + Hash + Display> {
     pub op_type: OperationType,
-    pub target_id: Uuid,
-    pub data: MsgDataObj<T>
+    pub target_id: IdType,
+    pub data: MsgDataObj<T, IdType>
 }
 
-pub trait IObj<T: Clone> {
-    fn get_id(self: &Self) -> Uuid;
+pub trait IObj<T: Clone, IdType> {
+    fn get_id(self: &Self) -> IdType;
     fn get_obj_type(self: &Self) -> ObjType;
     fn get_copy_data_vec(self: &Self) -> Vec<T>;
     fn get_ref_data_vec(self: &Self) -> &Vec<T>;
 }
 
-pub trait IRule<T: Clone>: IObj<T> {
-    /// 重载这个函数
+pub trait IRule<T: Clone,  IdType: Clone + Eq + Hash + Display>: IObj<T, IdType> {
+    /// 规则的描述
     fn about_rule(self: &Self) -> &'static str {
         "This is a mem rule"
     }
     
-    /// 重载这个函数
-    fn run(self: &Self, _pref_objs: &HashMap<Uuid, Box<dyn IObj<T> + Send>>) -> Option<Vec<Operation<T>>>;
+    /// 约定：  
+    /// pref_env_obj 为规则所在的膜对象  
+    /// pref_objs为这个膜对象中的对象（根据实现可以包含规则对象）  
+    fn run(self: &Self, pref_env_obj: &dyn IObj<T, IdType> , pref_objs: &HashMap<IdType, Box<dyn IObj<T, IdType> + Send>>) -> Option<Vec<Operation<T, IdType>>>;
 }
 
-pub trait IMem<T: Clone + 'static>: IObj<T> {
-    fn get_pref_objs(&self) -> &HashMap<Uuid, Box<dyn IObj<T> + Send>>;
-    fn get_pref_rules(&self) -> &HashMap<Uuid, Box<dyn IRule<T> + Send>>;
-    fn set_outter_sender(&mut self, s: crossbeam_channel::Sender<Operation<T>>);
+pub trait IMem<T: Clone + 'static, IdType: Clone + Eq + Hash + Display> : IObj<T, IdType> {
+    fn get_pref_objs(&self) -> &HashMap<IdType, Box<dyn IObj<T, IdType> + Send>>;
+    fn get_pref_rules(&self) -> &HashMap<IdType, Box<dyn IRule<T, IdType> + Send>>;
+    fn set_outter_sender(&mut self, s: crossbeam_channel::Sender<Operation<T, IdType>>);
 
-    fn add_obj(&mut self, op: Box::<dyn IObj<T> + Send>);
-    fn add_rule(&mut self, rp: Box::<dyn IRule<T> + Send>);
-    fn add_mem(&mut self, op: Box::<dyn IMem<T> + Send>);
+    fn add_obj(&mut self, op: Box::<dyn IObj<T, IdType> + Send>);
+    fn add_rule(&mut self, rp: Box::<dyn IRule<T, IdType> + Send>);
+    fn add_mem(&mut self, op: Box::<dyn IMem<T, IdType> + Send>);
 
-    fn drop_obj(&mut self, id: &Uuid);
-    fn drop_rule(&mut self, id: &Uuid);
+    fn drop_obj(&mut self, id: &IdType);
+    fn drop_rule(&mut self, id: &IdType);
 
-    fn init(&mut self) -> Result<crossbeam_channel::Sender<Operation<T>>, MemError>;
+    fn init(&mut self) -> Result<crossbeam_channel::Sender<Operation<T, IdType>>, MemError>;
     fn ready(&self) -> bool;
 
     fn start(&mut self) -> Result<bool, MemError> {
