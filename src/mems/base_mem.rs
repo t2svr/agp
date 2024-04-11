@@ -144,21 +144,6 @@ impl<T: Clone + 'static, IdType: Clone + Eq + Hash + Display + 'static> IMem<T, 
                         }
                       
                     },
-                    OperationType::Stop => {
-                        for s in self.inner_senders.as_ref().unwrap().values() {
-                            let _ = s.send( Operation::<T, IdType> {
-                                op_type: OperationType::MemAttachOutter,
-                                target_id: self.id.clone(),
-                                data: MsgDataObj::Sender(self.outter_sender.as_ref().unwrap().clone())
-                            });
-                        }
-                        let _ = self.outter_sender.as_ref().unwrap().send( Operation::<T, IdType> {
-                            op_type: OperationType::MemAttachInner,
-                            target_id: self.id.clone(),
-                            data: MsgDataObj::Inners((self.inner_senders.take().unwrap(), self.sub_mem_handels.take().unwrap()))
-                        });
-                        return true;
-                    },
                     OperationType::MemAttachOutter => {
                         if let MsgDataObj::Sender(s) = msg.data {
                             self.outter_sender = Some(s);
@@ -186,7 +171,28 @@ impl<T: Clone + 'static, IdType: Clone + Eq + Hash + Display + 'static> IMem<T, 
                                 self.add_rule(r);
                             }
                         }
-                    }
+                    },
+                    OperationType::Stop => {
+                        if !self.op_queue.is_empty() {
+                            self.op_queue.push(msg);
+                            let last_pos = self.op_queue.len() - 1;
+                            self.op_queue.swap(0, last_pos);
+                            continue;
+                        }
+                        for s in self.inner_senders.as_ref().unwrap().values() {
+                            let _ = s.send( Operation::<T, IdType> {
+                                op_type: OperationType::MemAttachOutter,
+                                target_id: self.id.clone(),
+                                data: MsgDataObj::Sender(self.outter_sender.as_ref().unwrap().clone())
+                            });
+                        }
+                        let _ = self.outter_sender.as_ref().unwrap().send( Operation::<T, IdType> {
+                            op_type: OperationType::MemAttachInner,
+                            target_id: self.id.clone(),
+                            data: MsgDataObj::Inners((self.inner_senders.take().unwrap(), self.sub_mem_handels.take().unwrap()))
+                        });
+                        return true;
+                    },
                 }
             }//while let
 
@@ -213,6 +219,27 @@ impl<T: Clone, IdType: Clone + Eq + Hash + Display> BaseMem<T, IdType> {
         Self{
             id,
             vec_data: Vec::new(),
+            ready: false,
+
+            objs: HashMap::new(),
+            rules: HashMap::new(),
+            sub_mem_handels: Some(HashMap::new()),
+
+            op_queue: Vec::new(),
+         
+            msg_sender: s,
+            msg_receiver: r,
+           
+            inner_senders: Some(HashMap::new()),
+            outter_sender:  Some(outter_sender)
+        }
+    }
+
+    pub fn with_data(outter_sender: Sender<Operation<T, IdType>>, id: IdType, vec_data: Vec<T>) -> Self {
+        let (s, r) = crossbeam_channel::unbounded();
+        Self{
+            id,
+            vec_data,
             ready: false,
 
             objs: HashMap::new(),
