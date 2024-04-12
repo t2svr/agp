@@ -1,10 +1,13 @@
 use crate::errors::MemError;
 
+use std::any::TypeId;
 use std::{collections::HashMap, fmt::Display, thread};
 use std::hash::Hash;
 
 pub enum ObjType {
-    Normal, Rule, Membrane
+    Normal(TypeId),
+    Rule(TypeId),
+    Membrane(TypeId)
 }
 
 pub enum MsgDataObj<T: Clone, IdType: Clone + Eq + Hash + Display> {
@@ -52,6 +55,7 @@ pub trait IObj<T: Clone, IdType> {
     fn get_obj_type(self: &Self) -> ObjType;
     fn get_copy_data_vec(self: &Self) -> Vec<T>;
     fn get_ref_data_vec(self: &Self) -> &Vec<T>;
+    
 }
 
 pub trait IRule<T: Clone,  IdType: Clone + Eq + Hash + Display>: IObj<T, IdType> {
@@ -59,11 +63,11 @@ pub trait IRule<T: Clone,  IdType: Clone + Eq + Hash + Display>: IObj<T, IdType>
     fn about_rule(self: &Self) -> &'static str {
         "This is a mem rule"
     }
-    
+
     /// 约定：  
-    /// pref_env_obj 为规则所在的膜对象  
+    /// pref_env_data为规则所在的膜对象  的数据vec
     /// pref_objs为这个膜对象中的对象（根据实现可以包含规则对象）  
-    fn run(self: &Self, pref_env_obj: &dyn IObj<T, IdType> , pref_objs: &HashMap<IdType, Box<dyn IObj<T, IdType> + Send>>) -> Option<Vec<Operation<T, IdType>>>;
+    fn run(&mut self, pref_env_data: &Vec<T> , pref_objs: &HashMap<IdType, Box<dyn IObj<T, IdType> + Send>>) -> Option<Vec<Operation<T, IdType>>>;
 }
 
 pub trait IMem<T: Clone + 'static, IdType: Clone + Eq + Hash + Display> : IObj<T, IdType> {

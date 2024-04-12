@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use crate::core::{IObj, ObjType};
 
 pub struct BaseObj<T, IdType> {
@@ -5,9 +7,9 @@ pub struct BaseObj<T, IdType> {
     vec_data: Vec<T>
 }
 
-impl<T: Clone, IdType: Clone> IObj<T, IdType> for BaseObj<T, IdType> {
+impl<T: Clone + 'static, IdType: Clone + 'static> IObj<T, IdType> for BaseObj<T, IdType> {
     fn get_id(self: &Self) -> IdType { self.id.clone() }
-    fn get_obj_type(self: &Self) -> ObjType { ObjType::Normal }
+    fn get_obj_type(self: &Self) -> ObjType { ObjType::Normal(self.type_id()) }
     
     fn get_copy_data_vec(self: &Self) -> Vec<T> {
         self.vec_data.clone()

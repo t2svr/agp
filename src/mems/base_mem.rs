@@ -1,12 +1,12 @@
 use crate::errors::MemError;
 use crate::core::*;
 
-use std::collections::HashMap;
+use std::{any::Any, collections::HashMap};
 use std::thread;
 use std::hash::Hash;
 use crossbeam_channel::{Receiver, Sender};
 use std::fmt::Display;
-pub struct BaseMem<T: Clone + 'static, IdType: Clone + Eq + Hash + Display> {
+pub struct BaseMem<T: Clone + 'static, IdType: Clone + Eq + Hash + Display + 'static> {
     id: IdType,
 
     objs: HashMap<IdType, Box<dyn IObj<T, IdType> + Send>>,
@@ -27,7 +27,7 @@ pub struct BaseMem<T: Clone + 'static, IdType: Clone + Eq + Hash + Display> {
 
 impl<T: Clone, IdType: Clone + Eq + Hash + Display> IObj<T, IdType> for BaseMem<T, IdType> {
     fn get_id(self: &Self) -> IdType { self.id.clone() }
-    fn get_obj_type(self: &Self) -> ObjType { ObjType::Membrane }
+    fn get_obj_type(self: &Self) -> ObjType { ObjType::Membrane(self.type_id()) }
     
     fn get_copy_data_vec(self: &Self) -> Vec<T> { self.vec_data.clone() }
     
@@ -44,7 +44,11 @@ impl<T: Clone + 'static, IdType: Clone + Eq + Hash + Display + 'static> IMem<T, 
     fn ready(&self) -> bool { self.ready }
     
     fn add_obj(&mut self, op: Box::<dyn IObj<T, IdType> + Send>) {
-        self.objs.insert(op.get_id(), op);
+        if let Some(old) = self.objs.get_mut(&op.get_id()) {
+            *old = op;
+        } else {
+            self.objs.insert(op.get_id(), op);
+        }
     }
     
     fn add_rule(&mut self, rp: Box::<dyn IRule<T, IdType> + Send>) {
@@ -196,8 +200,8 @@ impl<T: Clone + 'static, IdType: Clone + Eq + Hash + Display + 'static> IMem<T, 
                 }
             }//while let
 
-            for r in self.rules.values() {
-                if let Some(mut op) = r.run(self, &self.objs) {
+            for r in self.rules.values_mut() {
+                if let Some(mut op) = r.run(&self.vec_data, &self.objs) {
                     self.op_queue.append(&mut op);
                 }
             }
