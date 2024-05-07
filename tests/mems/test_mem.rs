@@ -7,8 +7,8 @@ use uuid::Uuid;
 pub fn basics() {
     let (s, _r) = crossbeam_channel::unbounded();
 
-    let mut m = BaseMem::<i32, Uuid>::new(s, Uuid::new_v4());
-    let mut obj_a = Box::new(BaseObj::<i32, Uuid>::new(Uuid::new_v4()));
+    let mut m = BaseMem::<Uuid, i32>::new(s, Uuid::new_v4());
+    let mut obj_a = Box::new(BaseObj::<Uuid, i32>::new(Uuid::new_v4()));
     obj_a.push_data(666);
     obj_a.push_data(777);
 

@@ -13,6 +13,7 @@ categories = ["libraries"]
 
 [dependencies]
 crossbeam-channel = "0.5"
+meme_derive = { path = "./meme_derive" }
 
 [dependencies.uuid]
 version = "1.7.0"
@@ -21,3 +22,5 @@ features = [
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ]
+
+

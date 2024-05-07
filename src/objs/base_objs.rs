@@ -1,31 +1,30 @@
-use std::any::Any;
+use meme_derive::IObj;
 
-use crate::core::{IObj, ObjType};
+use crate::core::{IObj, ObjT, ObjType};
 
-pub struct BaseObj<T, IdType> {
-    id: IdType,
-    vec_data: Vec<T>
+#[derive(IObj)]
+pub struct BaseObj<T, V>
+where T: Clone + 'static, V: Clone + 'static {
+    #[id(T)]
+    id: T,
+    #[data(V)]
+    vec_data: Vec<V>
 }
 
-impl<T: Clone + 'static, IdType: Clone + 'static> IObj<T, IdType> for BaseObj<T, IdType> {
-    fn get_id(self: &Self) -> IdType { self.id.clone() }
-    fn get_obj_type(self: &Self) -> ObjType { ObjType::Normal(self.type_id()) }
-    
-    fn get_copy_data_vec(self: &Self) -> Vec<T> {
-        self.vec_data.clone()
-    }
-    
-    fn get_ref_data_vec(self: &Self) -> &Vec<T> {
-        &self.vec_data
-    }
-}
-
-impl<T, IdType> BaseObj<T, IdType> {
-    pub fn new(id: IdType) -> Self {
+impl<T: Clone, V: Clone> BaseObj<T, V> {
+    pub fn new(id: T) -> Self {
         Self{ id, vec_data: Vec::new() }
     }
 
-    pub fn push_data(&mut self, val: T) {
+    pub fn push_data(&mut self, val: V) {
         self.vec_data.push(val);
     }
+}
+
+#[derive(IObj)]
+pub struct DeriveTestObj {
+    #[id(i64)]
+    id: i64,
+    #[data(f32)]
+    vec_data: Vec<f32>
 }

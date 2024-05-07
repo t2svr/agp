@@ -1,49 +1,55 @@
 use crate::errors::MemError;
 use crate::core::*;
 
-use std::{any::Any, collections::HashMap};
+use std::collections::HashMap;
 use std::thread;
 use std::hash::Hash;
 use crossbeam_channel::{Receiver, Sender};
 use std::fmt::Display;
-pub struct BaseMem<T: Clone + 'static, IdType: Clone + Eq + Hash + Display + 'static> {
+pub struct BaseMem< IdType: Clone + Eq + Hash + Display + 'static, ValueType: Clone + 'static> {
     id: IdType,
 
-    objs: HashMap<IdType, Box<dyn IObj<T, IdType> + Send>>,
-    rules: HashMap<IdType, Box<dyn IRule<T, IdType> + Send>>,
+    objs: HashMap<IdType, Box<dyn IObj<IdType = IdType, ValueType = ValueType> + Send>>,
+    rules: HashMap<IdType, Box<dyn IRule<IdType = IdType, ValueType = ValueType>  + Send>>,
     sub_mem_handels: Option<HashMap<IdType, thread::JoinHandle<Result<bool, MemError>>>>,
 
-    op_queue: Vec<Operation<T, IdType>>,
-    vec_data: Vec<T>,
+    op_queue: Vec<Operation<IdType, ValueType>>,
+    vec_data: Vec<ValueType>,
     ready: bool,
 
     /// clone this to other mem
-    msg_sender: Sender<Operation<T, IdType>>,
-    msg_receiver: Receiver<Operation<T, IdType>>,
+    msg_sender: Sender<Operation<IdType, ValueType>>,
+    msg_receiver: Receiver<Operation<IdType, ValueType>>,
 
-    outter_sender: Option<Sender<Operation<T, IdType>>>,
-    inner_senders: Option<HashMap<IdType ,Sender<Operation<T, IdType>>>>
+    outter_sender: Option<Sender<Operation<IdType, ValueType>>>,
+    inner_senders: Option<HashMap<IdType ,Sender<Operation<IdType, ValueType>>>>
 }
 
-impl<T: Clone, IdType: Clone + Eq + Hash + Display> IObj<T, IdType> for BaseMem<T, IdType> {
-    fn get_id(self: &Self) -> IdType { self.id.clone() }
-    fn get_obj_type(self: &Self) -> ObjType { ObjType::Membrane(self.type_id()) }
+impl<T, V> IObj for BaseMem<T, V>
+where T:  Clone + Eq + Hash + Display + 'static, V:  Clone + 'static {
+    fn get_id(self: &Self) -> Self::IdType { self.id.clone() }
+    fn get_obj_type(self: &Self) -> ObjType { ObjType::new::<Self>(ObjT::Normal) }
     
-    fn get_copy_data_vec(self: &Self) -> Vec<T> { self.vec_data.clone() }
+    fn get_copy_data_vec(self: &Self) -> Vec<Self::ValueType> { self.vec_data.clone() }
     
-    fn get_ref_data_vec(self: &Self) -> &Vec<T> { &self.vec_data }
+    fn get_ref_data_vec(self: &Self) -> &Vec<Self::ValueType> { &self.vec_data }
+    
+    type IdType = T;
+    
+    type ValueType = V;
 }
 
-impl<T: Clone + 'static, IdType: Clone + Eq + Hash + Display + 'static> IMem<T, IdType> for BaseMem<T, IdType> {
-    fn get_pref_objs(&self) -> &HashMap<IdType, Box<dyn IObj<T, IdType> + Send>> { &self.objs }
-    fn get_pref_rules(&self) -> &HashMap<IdType, Box<dyn IRule<T, IdType> + Send>> { &self.rules }
-    fn set_outter_sender(&mut self, s: crossbeam_channel::Sender<Operation<T, IdType>>) {
+impl<T, V> IMem for BaseMem<T, V>
+where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
+    fn get_pref_objs(&self) -> &HashMap<Self::IdType, Box<(dyn IObj<IdType = T, ValueType = V> + Send + 'static)>> { &self.objs }
+    fn get_pref_rules(&self) -> &HashMap<Self::IdType, Box<dyn IRule<IdType = T, ValueType = V> + Send>> { &self.rules }
+    fn set_outter_sender(&mut self, s: crossbeam_channel::Sender<Operation<T, V>>) {
         self.outter_sender = Some(s);
     }
 
     fn ready(&self) -> bool { self.ready }
     
-    fn add_obj(&mut self, op: Box::<dyn IObj<T, IdType> + Send>) {
+    fn add_obj(&mut self, op: Box<(dyn IObj<IdType = T, ValueType = V> + Send + 'static)>) {
         if let Some(old) = self.objs.get_mut(&op.get_id()) {
             *old = op;
         } else {
@@ -51,11 +57,11 @@ impl<T: Clone + 'static, IdType: Clone + Eq + Hash + Display + 'static> IMem<T, 
         }
     }
     
-    fn add_rule(&mut self, rp: Box::<dyn IRule<T, IdType> + Send>) {
+    fn add_rule(&mut self,  rp: Box::<dyn IRule<IdType = Self::IdType, ValueType = Self::ValueType> + Send>) {
         self.rules.insert(rp.get_id(), rp);
     }
 
-    fn add_mem(&mut self, mut mp: Box::<dyn IMem<T, IdType> + Send>) {
+    fn add_mem(&mut self, mut mp: Box::<dyn IMem<IdType = Self::IdType, ValueType = Self::ValueType> + Send>) {
         let id = mp.get_id();
         if let Ok(sender) = mp.init() {
             self.inner_senders.as_mut().unwrap().insert(id.clone(), sender);
@@ -75,14 +81,14 @@ impl<T: Clone + 'static, IdType: Clone + Eq + Hash + Display + 'static> IMem<T, 
         }
     }
 
-    fn drop_obj(&mut self, id: &IdType) {
+    fn drop_obj(&mut self, id: &Self::IdType) {
         self.objs.remove(id);
     }
-    fn drop_rule(&mut self, id: &IdType) {
+    fn drop_rule(&mut self, id: &Self::IdType) {
         self.rules.remove(id);
     }
 
-    fn init(&mut self) -> Result<crossbeam_channel::Sender<Operation<T, IdType>>, MemError> {
+    fn init(&mut self) -> Result<crossbeam_channel::Sender<Operation<Self::IdType, Self::ValueType>>, MemError> {
     
         self.ready = true;
 
@@ -184,13 +190,13 @@ impl<T: Clone + 'static, IdType: Clone + Eq + Hash + Display + 'static> IMem<T, 
                             continue;
                         }
                         for s in self.inner_senders.as_ref().unwrap().values() {
-                            let _ = s.send( Operation::<T, IdType> {
+                            let _ = s.send( Operation::<Self::IdType, Self::ValueType> {
                                 op_type: OperationType::MemAttachOutter,
                                 target_id: self.id.clone(),
                                 data: MsgDataObj::Sender(self.outter_sender.as_ref().unwrap().clone())
                             });
                         }
-                        let _ = self.outter_sender.as_ref().unwrap().send( Operation::<T, IdType> {
+                        let _ = self.outter_sender.as_ref().unwrap().send( Operation::<Self::IdType, Self::ValueType> {
                             op_type: OperationType::MemAttachInner,
                             target_id: self.id.clone(),
                             data: MsgDataObj::Inners((self.inner_senders.take().unwrap(), self.sub_mem_handels.take().unwrap()))
@@ -200,8 +206,16 @@ impl<T: Clone + 'static, IdType: Clone + Eq + Hash + Display + 'static> IMem<T, 
                 }
             }//while let
 
-            for r in self.rules.values_mut() {
-                if let Some(mut op) = r.run(&self.vec_data, &self.objs) {
+            for r in self.rules.values_mut() { //todo: 多线程化规则判断
+                let neened = r.obj_type_needed();
+                let mut obj_vec_clones: Vec<Vec<(Self::IdType, Vec<Self::ValueType>)>> = Vec::new();
+                obj_vec_clones.resize(neened.len(), Vec::new());
+                for o in self.objs.iter() {
+                    if let Some(index) = neened.get(&o.1.get_obj_type().tid) {
+                        obj_vec_clones[*index].push((o.0.clone(), o.1.get_copy_data_vec()));
+                    }
+                }
+                if let Some(mut op) = r.run(self.vec_data.clone(), obj_vec_clones) {
                     self.op_queue.append(&mut op);
                 }
             }
@@ -217,8 +231,8 @@ impl<T: Clone + 'static, IdType: Clone + Eq + Hash + Display + 'static> IMem<T, 
    
 }
 
-impl<T: Clone, IdType: Clone + Eq + Hash + Display> BaseMem<T, IdType> {
-    pub fn new(outter_sender: Sender<Operation<T, IdType>>, id: IdType) -> Self {
+impl<IdType: Clone + Eq + Hash + Display, ValueType: Clone> BaseMem<IdType, ValueType> {
+    pub fn new(outter_sender: Sender<Operation<IdType, ValueType>>, id: IdType) -> Self {
         let (s, r) = crossbeam_channel::unbounded();
         Self{
             id,
@@ -239,7 +253,7 @@ impl<T: Clone, IdType: Clone + Eq + Hash + Display> BaseMem<T, IdType> {
         }
     }
 
-    pub fn with_data(outter_sender: Sender<Operation<T, IdType>>, id: IdType, vec_data: Vec<T>) -> Self {
+    pub fn with_data(outter_sender: Sender<Operation<IdType, ValueType>>, id: IdType, vec_data: Vec<ValueType>) -> Self {
         let (s, r) = crossbeam_channel::unbounded();
         Self{
             id,
