@@ -4,3 +4,4 @@ pub mod errors;
 pub mod mems;
 pub mod objs;
 pub mod helpers;
+pub use meme_derive;
