@@ -7,7 +7,7 @@ use quote::{quote, ToTokens, format_ident};
 use syn;
 use syn::DeriveInput;
 
-#[proc_macro_derive(IObj, attributes(id, data))]
+#[proc_macro_derive(IObj, attributes(id, data, obj_type, obj_data_type, obj_id_type))]
 pub fn iobj_macro_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
 
@@ -16,6 +16,30 @@ pub fn iobj_macro_derive(input: TokenStream) -> TokenStream {
     let mut data: Option<syn::Ident> = None; 
     let mut id_t_s = String::new();
     let mut data_t_s = String::new();
+    let mut obj_t_s = String::new();
+
+    for root_a in ast.attrs {
+        if root_a.path.is_ident("obj_id_type") {
+            id_t_s = root_a.tokens.to_string();
+            id_t_s.remove(0);
+            id_t_s.pop();
+        } else if root_a.path.is_ident("obj_data_type") {
+            data_t_s = root_a.tokens.to_string();
+            data_t_s.remove(0);
+            data_t_s.pop();
+        } else if root_a.path.is_ident("obj_type") {
+            obj_t_s = root_a.tokens.to_string();
+            obj_t_s.remove(0);
+            obj_t_s.pop();
+        }
+    }
+
+    let obj_t_val = if obj_t_s.is_empty() {
+        quote! {ObjT::Normal}
+    } else {
+        let val = syn::parse_str::<syn::Expr>(obj_t_s.as_str()).unwrap();
+        quote! {#val}
+    };
 
     let gener = ast.generics.clone();
     let where_clu = if let Some(w) = gener.where_clause.clone() {
@@ -29,17 +53,10 @@ pub fn iobj_macro_derive(input: TokenStream) -> TokenStream {
         if let syn::Fields::Named(fields) = s.fields {
             for f in fields.named {
                 if let Some(attr) = f.attrs.get(0) {
-                    let attr_name = attr.path.to_token_stream().to_string();
-                    if attr_name == "id" {
+                    if attr.path.is_ident("id") {
                         id = f.ident.clone();
-                        id_t_s = attr.tokens.to_string();
-                        id_t_s.remove(0);
-                        id_t_s.pop();
-                    } else if attr_name == "data" {
+                    } else if attr.path.is_ident("data") {
                         data = f.ident.clone();
-                        data_t_s = attr.tokens.to_string();
-                        data_t_s.remove(0);
-                        data_t_s.pop();
                     }
                 }
             }
@@ -50,8 +67,8 @@ pub fn iobj_macro_derive(input: TokenStream) -> TokenStream {
         panic!()
     }
 
-    let (get_copy_data_vec_body, get_ref_data_vec_body, data_t_ident) = if data.is_none() {
-        (quote!{ unimplemented!() }, quote!{ unimplemented!() }, quote! {i64})
+    let (get_copy_data_vec_body, get_ref_data_vec_body) = if data.is_none() {
+        (quote!{ unimplemented!() }, quote!{ unimplemented!() })
     } else {
         let data_ident = data.unwrap();
         (
@@ -60,21 +77,20 @@ pub fn iobj_macro_derive(input: TokenStream) -> TokenStream {
             },
             quote! {
                 &self.#data_ident
-            },
-            format_ident!("{data_t_s}").to_token_stream()
+            }
         )
     };
 
     let id_ident = id.unwrap();
     let id_t_ident = format_ident!("{id_t_s}");
-
+    let data_t_ident = format_ident!("{data_t_s}");
     let gen = quote! {
         impl #gener IObj for #name #gener 
         #where_clu {
             type IdType = #id_t_ident;
             type ValueType = #data_t_ident;
             fn get_id(self: &Self) -> Self::IdType {self.#id_ident.clone()}
-            fn get_obj_type(self: &Self) -> ObjType {ObjType::new::<Self>(ObjT::Normal)}
+            fn get_obj_type(self: &Self) -> ObjType {ObjType::new::<Self>(#obj_t_val)}
             fn get_copy_data_vec(self: &Self) -> Vec<Self::ValueType> { #get_copy_data_vec_body }
             fn get_ref_data_vec(self: &Self) -> &Vec<Self::ValueType> { #get_ref_data_vec_body }
         }
