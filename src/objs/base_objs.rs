@@ -1,11 +1,11 @@
 use meme_derive::IObj;
 
-use crate::core::{IObj, ObjT, ObjType};
+use crate::core::{IObj, ObjCat, ObjType};
 
 #[derive(IObj)]
 #[obj_id_type(T)]
 #[obj_data_type(V)]
-#[obj_type(ObjT::Rule)]
+#[obj_type(ObjCat::Rule)]
 pub struct BaseObj<T, V>
 where T: Clone + 'static, V: Clone + 'static {
     #[id]

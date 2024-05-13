@@ -1,20 +1,30 @@
-use crate::errors::MemError;
+use crate::{errors::MemError, helpers::NeedCount};
 use crate::core::*;
+use crate::meme_derive::IObj;
 
 use std::collections::HashMap;
 use std::thread;
 use std::hash::Hash;
 use crossbeam_channel::{Receiver, Sender};
 use std::fmt::Display;
-pub struct BaseMem< IdType: Clone + Eq + Hash + Display + 'static, ValueType: Clone + 'static> {
-    id: IdType,
+
+#[derive(IObj)]
+#[obj_id_type(IdType)]
+#[obj_data_type(ValueType)]
+#[obj_type(ObjCat::Membrane)]
+pub struct BaseMem<IdType, ValueType>
+where IdType: Clone + Eq + Hash + Display + 'static, ValueType: Clone + 'static {
+    #[id]
+    id: IdType, 
+    #[data]
+    vec_data: Vec<ValueType>,
 
     objs: HashMap<IdType, Box<dyn IObj<IdType = IdType, ValueType = ValueType> + Send>>,
     rules: HashMap<IdType, Box<dyn IRule<IdType = IdType, ValueType = ValueType>  + Send>>,
     sub_mem_handels: Option<HashMap<IdType, thread::JoinHandle<Result<bool, MemError>>>>,
 
     op_queue: Vec<Operation<IdType, ValueType>>,
-    vec_data: Vec<ValueType>,
+   
     ready: bool,
 
     /// clone this to other mem
@@ -25,27 +35,11 @@ pub struct BaseMem< IdType: Clone + Eq + Hash + Display + 'static, ValueType: Cl
     inner_senders: Option<HashMap<IdType ,Sender<Operation<IdType, ValueType>>>>
 }
 
-impl<T, V> IObj for BaseMem<T, V>
-where T:  Clone + Eq + Hash + Display + 'static, V:  Clone + 'static {
-    fn get_id(self: &Self) -> Self::IdType { self.id.clone() }
-    fn get_obj_type(self: &Self) -> ObjType { ObjType::new::<Self>(ObjT::Normal) }
-    
-    fn get_copy_data_vec(self: &Self) -> Vec<Self::ValueType> { self.vec_data.clone() }
-    
-    fn get_ref_data_vec(self: &Self) -> &Vec<Self::ValueType> { &self.vec_data }
-    
-    type IdType = T;
-    
-    type ValueType = V;
-}
-
 impl<T, V> IMem for BaseMem<T, V>
 where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
     fn get_pref_objs(&self) -> &HashMap<Self::IdType, Box<(dyn IObj<IdType = T, ValueType = V> + Send + 'static)>> { &self.objs }
     fn get_pref_rules(&self) -> &HashMap<Self::IdType, Box<dyn IRule<IdType = T, ValueType = V> + Send>> { &self.rules }
-    fn set_outter_sender(&mut self, s: crossbeam_channel::Sender<Operation<T, V>>) {
-        self.outter_sender = Some(s);
-    }
+    fn set_outter_sender(&mut self, s: crossbeam_channel::Sender<Operation<T, V>>) { self.outter_sender = Some(s); }
 
     fn ready(&self) -> bool { self.ready }
     
@@ -207,14 +201,39 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
             }//while let
 
             for r in self.rules.values_mut() { //todo: 多线程化规则判断
-                let neened = r.obj_type_needed();
-                let mut obj_vec_clones: Vec<Vec<(Self::IdType, Vec<Self::ValueType>)>> = Vec::new();
-                obj_vec_clones.resize(neened.len(), Vec::new());
-                for o in self.objs.iter() {
-                    if let Some(index) = neened.get(&o.1.get_obj_type().tid) {
-                        obj_vec_clones[*index].push((o.0.clone(), o.1.get_copy_data_vec()));
+                let needed_types = r.obj_type_needed();
+
+                let mut obj_vec_clones: Vec<Vec<(Self::IdType, Vec<Self::ValueType>)>> = Vec::with_capacity(needed_types.len());
+                let mut obj_count: Vec<usize> = Vec::with_capacity(needed_types.len());
+                let mut obj_to_remove: Vec<T> = Vec::new();
+                obj_vec_clones.resize(needed_types.len(), Vec::new());
+                obj_count.resize(needed_types.len(), 0usize);
+
+                for (_, (index, nc, _)) in needed_types {
+                    if let NeedCount::Some(c) = nc {
+                        obj_count[*index] = *c;
                     }
                 }
+                
+                for (id, v) in self.objs.iter() {
+                    if let Some((index, nc, is_take)) = needed_types.get(&v.get_obj_type().tid) {
+                        if let NeedCount::Some(c) = nc {
+                            if obj_count[*index] == 0 {
+                                continue;
+                            }
+                            obj_count[*index] -= 1;
+                        }
+                        obj_vec_clones[*index].push((id.clone(), v.get_copy_data_vec()));
+                        if *is_take {
+                            obj_to_remove.push(id.clone());
+                        }
+                    }
+                }
+
+                for id in obj_to_remove {
+                    self.objs.remove(&id);
+                }
+                
                 if let Some(mut op) = r.run(self.vec_data.clone(), obj_vec_clones) {
                     self.op_queue.append(&mut op);
                 }

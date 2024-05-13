@@ -1,11 +1,12 @@
 use crate::errors::MemError;
+use crate::helpers::NeedCount;
 
 use std::any::TypeId;
 use std::{collections::HashMap, fmt::Display, thread};
 use std::hash::Hash;
 
 #[derive(Debug)]
-pub enum ObjT {
+pub enum ObjCat {
     Normal,
     Rule,
     Membrane
@@ -13,12 +14,12 @@ pub enum ObjT {
 
 #[derive(Debug)]
 pub struct ObjType {
-    pub t: ObjT,
+    pub t: ObjCat,
     pub tid: TypeId
 }
 
 impl ObjType {
-    pub fn new<T: 'static>(t: ObjT) ->Self {
+    pub fn new<T: 'static>(t: ObjCat) ->Self {
         Self {
             t, tid: TypeId::of::<T>()
         }
@@ -93,7 +94,7 @@ where Self::IdType: Clone + Eq + Hash + Display, Self::ValueType: Clone
         "This is a mem rule"
     }
 
-    fn obj_type_needed(&self) -> &HashMap<TypeId, usize>;
+    fn obj_type_needed(&self) -> &HashMap<TypeId, (usize, NeedCount, bool)>;
     
     /// 约定：
     /// pref_env_data为规则所在的膜对象  的数据vec

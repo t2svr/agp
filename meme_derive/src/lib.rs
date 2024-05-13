@@ -35,7 +35,7 @@ pub fn iobj_macro_derive(input: TokenStream) -> TokenStream {
     }
 
     let obj_t_val = if obj_t_s.is_empty() {
-        quote! {ObjT::Normal}
+        quote! {ObjCat::Normal}
     } else {
         let val = syn::parse_str::<syn::Expr>(obj_t_s.as_str()).unwrap();
         quote! {#val}
