@@ -7,7 +7,7 @@ use quote::{quote, ToTokens, format_ident};
 use syn;
 use syn::DeriveInput;
 
-#[proc_macro_derive(IObj, attributes(id, data, obj_type, obj_data_type, obj_id_type))]
+#[proc_macro_derive(IObj, attributes(id, data, obj_type, data_type, id_type))]
 pub fn iobj_macro_derive(input: TokenStream) -> TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
 
@@ -19,11 +19,11 @@ pub fn iobj_macro_derive(input: TokenStream) -> TokenStream {
     let mut obj_t_s = String::new();
 
     for root_a in ast.attrs {
-        if root_a.path.is_ident("obj_id_type") {
+        if root_a.path.is_ident("id_type") {
             id_t_s = root_a.tokens.to_string();
             id_t_s.remove(0);
             id_t_s.pop();
-        } else if root_a.path.is_ident("obj_data_type") {
+        } else if root_a.path.is_ident("data_type") {
             data_t_s = root_a.tokens.to_string();
             data_t_s.remove(0);
             data_t_s.pop();

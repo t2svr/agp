@@ -1,5 +1,4 @@
 use crate::errors::MemError;
-use crate::helpers::NeedCount;
 
 use std::any::TypeId;
 use std::{collections::HashMap, fmt::Display, thread};
@@ -28,7 +27,7 @@ impl ObjType {
 
 
 
-pub enum MsgDataObj<ValueType: Clone, IdType: Clone + Eq + Hash + Display> {
+pub enum MsgDataObj<IdType: Clone + Eq + Hash + Display, ValueType: Clone> {
     Obj(Box<dyn IObj<IdType = IdType, ValueType = ValueType> + Send>),
     Objs(Vec<Box<dyn IObj<IdType = IdType, ValueType = ValueType> + Send>>),
     Rule(Box<dyn IRule<IdType =  IdType, ValueType =ValueType> + Send>),
@@ -65,11 +64,58 @@ pub enum OperationType {
 pub struct Operation<IdType: Clone + Eq + Hash + Display, ValueType: Clone> {
     pub op_type: OperationType,
     pub target_id: IdType,
-    pub data: MsgDataObj<ValueType, IdType>
+    pub data: MsgDataObj<IdType, ValueType>
 }
 
+pub type PObj<IdType, ValueType> = Box<dyn IObj<IdType = IdType, ValueType = ValueType> + Send>;
+
+impl<T, V> Operation<T, V>
+where T: Clone + Eq + Hash + Display, V: Clone
+{
+    
+    pub fn obj_add_batch(target_id: T, objs: Vec<PObj<T, V>>) -> Self{
+        Self {
+            op_type: OperationType::ObjAddBatch,
+            target_id,
+            data: MsgDataObj::Objs(objs)
+        }
+    }
+}
+
+
+#[derive(Clone)]
+pub enum NeedCount {
+    All,
+    Some(usize)
+}
+
+impl Default for NeedCount {
+    fn default() -> Self {
+        Self::All
+    }
+}
+
+impl NeedCount {
+    pub fn is_some(&self) -> bool {
+        match self {
+            NeedCount::All => false,
+            NeedCount::Some(_) => true,
+        }
+    }
+    pub fn is_all(&self) -> bool {
+        match self {
+            NeedCount::All => true,
+            NeedCount::Some(_) => false,
+        }
+    }
+}
+
+pub type NeedsMap = HashMap<TypeId, (usize, NeedCount, bool)>;
+
+//HashMap<TypeId, (usize, NeedCount, bool)>
+
 impl<ValueType: Clone,  IdType: Clone + Eq + Hash + Display> Operation<IdType, ValueType> {
-    pub fn new( op_type: OperationType, target_id: IdType, data: MsgDataObj<ValueType, IdType>) -> Self {
+    pub fn new(op_type: OperationType, target_id: IdType, data: MsgDataObj<IdType, ValueType>) -> Self {
         Self {
             op_type, target_id, data
         }
@@ -94,12 +140,12 @@ where Self::IdType: Clone + Eq + Hash + Display, Self::ValueType: Clone
         "This is a mem rule"
     }
 
-    fn obj_type_needed(&self) -> &HashMap<TypeId, (usize, NeedCount, bool)>;
+    fn obj_type_needed(&self) -> &NeedsMap;
     
     /// 约定：
     /// pref_env_data为规则所在的膜对象  的数据vec
     /// pref_objs为这个膜对象中的对象（根据实现可以包含规则对象）  
-    fn run(&mut self, env_data: Vec<Self::ValueType>, objs_data: Vec<Vec<(Self::IdType, Vec<Self::ValueType>)>>) -> Option<Vec<Operation<Self::IdType, Self::ValueType>>>;
+    fn run(&mut self, env:(Self::IdType, Vec<Self::ValueType>), objs_data: Vec<Vec<(Self::IdType, Vec<Self::ValueType>)>>) -> Option<Vec<Operation<Self::IdType, Self::ValueType>>>;
 }
 
 pub trait IMem : IObj

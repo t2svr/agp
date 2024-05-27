@@ -1,6 +1,7 @@
-use crate::{errors::MemError, helpers::NeedCount};
+use crate::{errors::MemError, core::NeedCount};
 use crate::core::*;
 use crate::meme_derive::IObj;
+use crate::lib_info;
 
 use std::collections::HashMap;
 use std::thread;
@@ -8,9 +9,12 @@ use std::hash::Hash;
 use crossbeam_channel::{Receiver, Sender};
 use std::fmt::Display;
 
+use log::Level;
+use log::log;
+
 #[derive(IObj)]
-#[obj_id_type(IdType)]
-#[obj_data_type(ValueType)]
+#[id_type(IdType)]
+#[data_type(ValueType)]
 #[obj_type(ObjCat::Membrane)]
 pub struct BaseMem<IdType, ValueType>
 where IdType: Clone + Eq + Hash + Display + 'static, ValueType: Clone + 'static {
@@ -68,10 +72,10 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
             }){
                 self.sub_mem_handels.as_mut().unwrap().insert(id, handel);
             } else {
-                println!("err: can't start mem thread for: {}", id);
+                log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Thread of mem {id} can't spawn.");
             }
         } else {
-            println!("err: can't init mem: {}", id);
+            log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {id} failed to init.");
         }
     }
 
@@ -91,7 +95,6 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
 
     fn run(&mut self) -> bool {
         loop {
-
             while let Some(mut msg) = self.op_queue.pop() {
                 match msg.op_type {
                     OperationType::ObjAdd => {
@@ -117,16 +120,17 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
                             }
                         } else{
                             if let Err(e) = self.outter_sender.as_ref().unwrap().send(msg) {
-                                println!("{}", e);
+                                log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its outter: {:?}", self.id, e);
                             }
                         }
                     },
                     OperationType::ObjIn => {
-                        if self.sub_mem_handels.as_ref().unwrap().contains_key(&msg.target_id) {
-                            if let Some(sender) = self.inner_senders.as_ref().unwrap().get(&msg.target_id) {
+                        let inner_id = msg.target_id.clone();
+                        if self.sub_mem_handels.as_ref().unwrap().contains_key(&inner_id) {
+                            if let Some(sender) = self.inner_senders.as_ref().unwrap().get(&inner_id) {
                                 msg.op_type = OperationType::ObjAdd;
                                 if let Err(e) = sender.send(msg) {
-                                    println!("{}", e);
+                                    log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its inner {}: {:?}", self.id, inner_id, e);
                                 }
                             }
                         }
@@ -137,11 +141,12 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
                         }
                     },
                     OperationType::MemRemove => {
-                        if let Some(handel) = self.sub_mem_handels.as_mut().unwrap().remove(&msg.target_id) {
-                            if let Some(sender) = self.inner_senders.as_mut().unwrap().remove(&msg.target_id) {
+                        let sub_mem_id = msg.target_id.clone();
+                        if let Some(handel) = self.sub_mem_handels.as_mut().unwrap().remove(&sub_mem_id) {
+                            if let Some(sender) = self.inner_senders.as_mut().unwrap().remove(&sub_mem_id) {
                                 msg.op_type = OperationType::Stop;
                                 if let Err(e) = sender.send(msg) {
-                                    println!("{}", e);
+                                    log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its inner {}: {:?}", self.id, sub_mem_id, e);
                                 }
                                 let _ = handel.join().expect("Couldn't join on the associated thread");
                             }
@@ -200,7 +205,7 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
                 }
             }//while let
 
-            for r in self.rules.values_mut() { //todo: 多线程化规则判断
+            for r in self.rules.values_mut() { //todo: 多线程化
                 let needed_types = r.obj_type_needed();
 
                 let mut obj_vec_clones: Vec<Vec<(Self::IdType, Vec<Self::ValueType>)>> = Vec::with_capacity(needed_types.len());
@@ -215,9 +220,9 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
                     }
                 }
                 
-                for (id, v) in self.objs.iter() {
+                for (id, v) in self.objs.iter() { //这个地方有优化的空间 增加对象索引可以避免这个循环
                     if let Some((index, nc, is_take)) = needed_types.get(&v.get_obj_type().tid) {
-                        if let NeedCount::Some(c) = nc {
+                        if nc.is_some()  {
                             if obj_count[*index] == 0 {
                                 continue;
                             }
@@ -234,7 +239,7 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
                     self.objs.remove(&id);
                 }
                 
-                if let Some(mut op) = r.run(self.vec_data.clone(), obj_vec_clones) {
+                if let Some(mut op) = r.run((self.id.clone(), self.vec_data.clone()), obj_vec_clones) {
                     self.op_queue.append(&mut op);
                 }
             }

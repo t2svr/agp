@@ -1,6 +1,6 @@
 use std::{thread, time::Duration};
 
-use meme::{core::*, mems::base_mem::BaseMem, objs::base_objs::BaseObj};
+use meme::{core::*, mems::base_mem::BaseMem, objs::base_objs::ExampleObj};
 use uuid::Uuid;
 
 #[test]
@@ -8,9 +8,9 @@ pub fn basics() {
     let (s, _r) = crossbeam_channel::unbounded();
 
     let mut m = BaseMem::<Uuid, i32>::new(s, Uuid::new_v4());
-    let mut obj_a = Box::new(BaseObj::<Uuid, i32>::new(Uuid::new_v4()));
-    obj_a.push_data(666);
-    obj_a.push_data(777);
+    let mut obj_a = Box::new(ExampleObj::<Uuid, i32>::new(Uuid::new_v4()));
+    obj_a.data_push_val(666);
+    obj_a.data_push_val(777);
 
     let ini_res = m.init();
     assert!(ini_res.is_ok());

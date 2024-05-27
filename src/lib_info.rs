@@ -12,13 +12,18 @@ This is Membrane Emulator(meme) lib.
 ///
 ////////////////////////////////
 /// 
-/// 路线: 
+/// To-Dos: 
 /// 1. 添加自动实现IObj的宏 (于2024/5/8完成)
-/// 2. log
-/// 3. 同一个膜的规则并行
-/// 4. 跨设备通信
-/// 5. 跨平台
+/// 2. log (于2024/5/18完成)
+/// 3. 支持Vec<Vec<T>>的对象数据成员
+/// 4. 同一个膜的规则并行
+/// 5. 跨设备通信
+/// 6. 跨平台
+/// 7. 提高规则执行效率
 /// 
 ////////////////////////////////
 "
 }
+
+pub const LOG_TARGET_MEM: &'static str = "LOG_TARGET_MEM";
+pub const LOG_TARGET_GPU: &'static str = "LOG_TARGET_GPU";
