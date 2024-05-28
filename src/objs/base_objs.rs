@@ -2,7 +2,7 @@ use std::{fmt::Display, hash::Hash};
 
 use meme_derive::IObj;
 
-use crate::{core::{IObj, IRule, NeedCount, NeedsMap, ObjCat, ObjType}, helpers::needs_map_builder};
+use crate::{core::{DataObj, IObj, IRule, NeedCount, NeedsMap, ObjCat, ObjType}, helpers::needs_map_builder};
 
 #[derive(IObj)]
 #[id_type(T)]
@@ -62,8 +62,8 @@ impl<T: Clone + Hash + Display + Eq + Send + Default, V: Clone + Send> IRule for
     /// objs_data: 输入的各种对象的 id 和数据
     /// objs_data\[ i \] 为第i种输入的对象， i 的顺序为 needs_map_builder 中设定时的顺序， 本例中 objs_data\[ 0 \] 为 ExampleObj 对象  
     /// objs_data\[ i \]\[ j \] 为输入的第 j 个第 i 种对象， j 的顺序认作随机
-    fn run(&mut self, env:(Self::IdType, Vec<Self::ValueType>), objs_data: Vec<Vec<(Self::IdType, Vec<Self::ValueType>)>>) -> Option<Vec<crate::core::Operation<Self::IdType, Self::ValueType>>> {
-        if objs_data[0].len() == 0 {
+     fn run(&mut self, env: DataObj<Self::IdType, Self::ValueType>, objs_data: Vec<crate::core::DataObjs<Self::IdType, Self::ValueType>>) -> Option<Vec<crate::core::Operation<Self::IdType, Self::ValueType>>> {
+        if objs_data[0].is_empty() {
             return None;
         }
         let mut new_obj: Vec<crate::core::PObj<Self::IdType, Self::ValueType>> = Vec::new();
@@ -73,14 +73,16 @@ impl<T: Clone + Hash + Display + Eq + Send + Default, V: Clone + Send> IRule for
             self.some_private_data += 1;
         }
         new_obj.push(Box::new(ExampleObj::new(Default::default())));
-        let mut res: Vec<crate::core::Operation<Self::IdType, Self::ValueType>> = Vec::new();
-        res.push(crate::core::Operation::obj_add_batch(env.0, new_obj));
+        let res: Vec<crate::core::Operation<Self::IdType, Self::ValueType>> = vec![
+            crate::core::Operation::obj_add_batch(env.id, new_obj)
+        ];
         //
 
-        return Some(res);   
+        Some(res)  
     }
-
-    fn about_rule(self: &Self) -> &'static str {
+    fn about_rule(&self) -> &'static str {
         "这是一个可选的方法，可以用于日志的输出"
     }
+    
+   
 }

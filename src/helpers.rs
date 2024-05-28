@@ -17,12 +17,19 @@ pub struct NeedsBuilder{
     needs_v: Vec<(TypeId, NeedCount, bool)>
 }
 
+impl Default for NeedsBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NeedsBuilder {
     pub fn new() -> Self {
         Self {
             needs_v: Vec::new()
         }
     }
+    
 
     /// 表示该规则读取count个T对象
     pub fn reads<T: 'static>(mut self, count: NeedCount) -> NeedsBuilder {
@@ -61,11 +68,11 @@ pub fn make_gpu_buffer<T: krnl::scalar::Scalar>(data: Vec<T>) -> Option<BufferBa
     let res = Buffer::from(data).into_device(gpu::DEVICE.clone());
     match res {
         Ok(buf) => {
-            return Some(buf);
+            Some(buf)
         },
         Err(e) => {
             log!(target: lib_info::LOG_TARGET_GPU, Level::Error, "Failed to create gpu buffer: {:?}", e);
-            return None;
+            None
         },
     }
 }

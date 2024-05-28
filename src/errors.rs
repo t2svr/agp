@@ -17,7 +17,7 @@ impl fmt::Debug for MemError {
 }
 
 impl MemError {
-    pub fn from_str(s: &str) -> Self {
+    pub fn new(s: &str) -> Self {
         Self {
             info: String::from(s)
         }

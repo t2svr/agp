@@ -90,7 +90,7 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
     
         self.ready = true;
 
-        return Ok(self.msg_sender.clone());
+        Ok(self.msg_sender.clone())
     }
 
     fn run(&mut self) -> bool {
@@ -118,10 +118,8 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
                             if let MsgDataObj::Obj(o) = msg.data {
                                 self.add_obj(o);
                             }
-                        } else{
-                            if let Err(e) = self.outter_sender.as_ref().unwrap().send(msg) {
-                                log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its outter: {:?}", self.id, e);
-                            }
+                        } else if let Err(e) = self.outter_sender.as_ref().unwrap().send(msg) {
+                            log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its outter: {:?}", self.id, e);
                         }
                     },
                     OperationType::ObjIn => {
@@ -208,13 +206,13 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
             for r in self.rules.values_mut() { //todo: 多线程化
                 let needed_types = r.obj_type_needed();
 
-                let mut obj_vec_clones: Vec<Vec<(Self::IdType, Vec<Self::ValueType>)>> = Vec::with_capacity(needed_types.len());
+                let mut obj_vec_clones: Vec<DataObjs<T, V>> = Vec::with_capacity(needed_types.len());
                 let mut obj_count: Vec<usize> = Vec::with_capacity(needed_types.len());
                 let mut obj_to_remove: Vec<T> = Vec::new();
                 obj_vec_clones.resize(needed_types.len(), Vec::new());
                 obj_count.resize(needed_types.len(), 0usize);
 
-                for (_, (index, nc, _)) in needed_types {
+                for (index, nc, _) in needed_types.values() {
                     if let NeedCount::Some(c) = nc {
                         obj_count[*index] = *c;
                     }
@@ -228,7 +226,7 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
                             }
                             obj_count[*index] -= 1;
                         }
-                        obj_vec_clones[*index].push((id.clone(), v.get_copy_data_vec()));
+                        obj_vec_clones[*index].push(DataObj::new(id.clone(), v.get_copy_data_vec()));
                         if *is_take {
                             obj_to_remove.push(id.clone());
                         }
@@ -239,7 +237,7 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
                     self.objs.remove(&id);
                 }
                 
-                if let Some(mut op) = r.run((self.id.clone(), self.vec_data.clone()), obj_vec_clones) {
+                if let Some(mut op) = r.run(DataObj::new(self.id.clone(), self.vec_data.clone()), obj_vec_clones) {
                     self.op_queue.append(&mut op);
                 }
             }

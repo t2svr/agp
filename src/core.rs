@@ -26,6 +26,8 @@ impl ObjType {
 }
 
 
+pub type SenderMap<IdType, ValueType> = HashMap<IdType, crossbeam_channel::Sender<Operation<IdType, ValueType>>>;
+pub type HandleMap<IdType> =  HashMap<IdType, thread::JoinHandle<Result<bool, MemError>>>;
 
 pub enum MsgDataObj<IdType: Clone + Eq + Hash + Display, ValueType: Clone> {
     Obj(Box<dyn IObj<IdType = IdType, ValueType = ValueType> + Send>),
@@ -34,7 +36,7 @@ pub enum MsgDataObj<IdType: Clone + Eq + Hash + Display, ValueType: Clone> {
     Rules(Vec<Box<dyn IRule<IdType =  IdType, ValueType =ValueType> + Send>>),
     Membrane(Box<dyn IMem<IdType = IdType, ValueType = ValueType> + Send>),
     Sender(crossbeam_channel::Sender<Operation<IdType, ValueType>>),
-    Inners((HashMap<IdType, crossbeam_channel::Sender<Operation<IdType, ValueType>>>, HashMap<IdType, thread::JoinHandle<Result<bool, MemError>>>)),
+    Inners((SenderMap<IdType, ValueType>, HandleMap<IdType>)),
     RowData(Vec<ValueType>),
     None
 }
@@ -68,6 +70,7 @@ pub struct Operation<IdType: Clone + Eq + Hash + Display, ValueType: Clone> {
 }
 
 pub type PObj<IdType, ValueType> = Box<dyn IObj<IdType = IdType, ValueType = ValueType> + Send>;
+pub type PRule<IdType, ValueType> = Box<dyn IRule<IdType = IdType, ValueType = ValueType> + Send>;
 
 impl<T, V> Operation<T, V>
 where T: Clone + Eq + Hash + Display, V: Clone
@@ -125,34 +128,49 @@ impl<ValueType: Clone,  IdType: Clone + Eq + Hash + Display> Operation<IdType, V
 pub trait IObj {
     type IdType: Clone;
     type ValueType: Clone;
-    fn get_id(self: &Self) -> Self::IdType;
-    fn get_obj_type(self: &Self) -> ObjType;
-    fn get_copy_data_vec(self: &Self) -> Vec<Self::ValueType>;
-    fn get_ref_data_vec(self: &Self) -> &Vec<Self::ValueType>;
+    fn get_id(&self) -> Self::IdType;
+    fn get_obj_type(&self) -> ObjType;
+    fn get_copy_data_vec(&self) -> Vec<Self::ValueType>;
+    fn get_ref_data_vec(&self) -> &Vec<Self::ValueType>;
     
 }
+
+#[derive(Clone)]
+pub struct DataObj<IdType, ValueType> {
+    pub id: IdType,
+    pub data: Vec<ValueType>
+}
+
+impl<IdType, ValueType> DataObj<IdType, ValueType> {
+    pub fn new(id: IdType, data: Vec<ValueType>) -> Self {
+        Self { id, data }
+    }
+}
+
+pub type DataObjs<IdType, ValueType> = Vec<DataObj<IdType, ValueType>>;
+pub type Operations<IdType, ValueType> = Vec<Operation<IdType, ValueType>>;
 
 pub trait IRule: IObj
 where Self::IdType: Clone + Eq + Hash + Display, Self::ValueType: Clone 
 {
     /// 规则的描述
-    fn about_rule(self: &Self) -> &'static str {
+    fn about_rule(&self) -> &'static str {
         "This is a mem rule"
     }
 
     fn obj_type_needed(&self) -> &NeedsMap;
     
-    /// 约定：
-    /// pref_env_data为规则所在的膜对象  的数据vec
-    /// pref_objs为这个膜对象中的对象（根据实现可以包含规则对象）  
-    fn run(&mut self, env:(Self::IdType, Vec<Self::ValueType>), objs_data: Vec<Vec<(Self::IdType, Vec<Self::ValueType>)>>) -> Option<Vec<Operation<Self::IdType, Self::ValueType>>>;
+    fn run(&mut self, env: DataObj<Self::IdType, Self::ValueType>, objs_data: Vec<DataObjs<Self::IdType, Self::ValueType>>)
+     -> Option<Operations<Self::IdType, Self::ValueType>>;
 }
+
+pub type OperationSender<IdType, ValueType> = crossbeam_channel::Sender<Operation<IdType, ValueType>>;
 
 pub trait IMem : IObj
 where Self::ValueType: Clone + 'static , Self::IdType: Clone + Eq + Hash + Display
 {
-    fn get_pref_objs(&self) -> &HashMap<Self::IdType, Box<dyn IObj<IdType = Self::IdType, ValueType = Self::ValueType> + Send>>;
-    fn get_pref_rules(&self) -> &HashMap<Self::IdType, Box<dyn IRule<IdType = Self::IdType, ValueType = Self::ValueType> + Send>>;
+    fn get_pref_objs(&self) -> &HashMap<Self::IdType, PObj<Self::IdType, Self::ValueType>>;
+    fn get_pref_rules(&self) -> &HashMap<Self::IdType, PRule<Self::IdType, Self::ValueType>>;
     fn set_outter_sender(&mut self, s: crossbeam_channel::Sender<Operation<Self::IdType, Self::ValueType>>);
 
     fn add_obj(&mut self, op: Box::<dyn IObj<IdType = Self::IdType, ValueType = Self::ValueType> + Send>);
@@ -162,14 +180,14 @@ where Self::ValueType: Clone + 'static , Self::IdType: Clone + Eq + Hash + Displ
     fn drop_obj(&mut self, id: &Self::IdType);
     fn drop_rule(&mut self, id: &Self::IdType);
 
-    fn init(&mut self) -> Result<crossbeam_channel::Sender<Operation<Self::IdType, Self::ValueType>>, MemError>;
+    fn init(&mut self) -> Result<OperationSender<Self::IdType, Self::ValueType>, MemError>;
     fn ready(&self) -> bool;
 
     fn start(&mut self) -> Result<bool, MemError> {
         if self.ready() {
             Ok(self.run())
         } else {
-            Err(MemError::from_str("Mem start failed."))
+            Err(MemError::new("Mem start failed."))
         }
     }
 
