@@ -25,5 +25,5 @@ This is Membrane Emulator(meme) lib.
 "
 }
 
-pub const LOG_TARGET_MEM: &'static str = "LOG_TARGET_MEM";
-pub const LOG_TARGET_GPU: &'static str = "LOG_TARGET_GPU";
+pub const LOG_TARGET_MEM: &str = "LOG_TARGET_MEM";
+pub const LOG_TARGET_GPU: &str = "LOG_TARGET_GPU";

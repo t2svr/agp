@@ -30,7 +30,6 @@ impl NeedsBuilder {
         }
     }
     
-
     /// 表示该规则读取count个T对象
     pub fn reads<T: 'static>(mut self, count: NeedCount) -> NeedsBuilder {
         if count.is_some() {
