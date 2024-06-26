@@ -17,6 +17,7 @@ meme_derive = { path = "./meme_derive" }
 log = "0.4"
 once_cell = "1.19"
 krnl = "0.1"
+rand = "0.8"
 
 [dependencies.uuid]
 version = "1.7.0"

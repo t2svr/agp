@@ -8,10 +8,10 @@ pub type SenderMap<IdType, ValueType> = HashMap<IdType, crossbeam_channel::Sende
 pub type HandleMap<IdType> =  HashMap<IdType, thread::JoinHandle<Result<bool, MemError>>>;
 pub type PObj<IdType, ValueType> = Box<dyn IObj<IdType = IdType, ValueType = ValueType> + Send>;
 pub type PRule<IdType, ValueType> = Box<dyn IRule<IdType = IdType, ValueType = ValueType> + Send>;
-pub type NeedsMap = HashMap<TypeId, (usize, NeedCount, bool)>;
-pub type DataObjs<IdType, ValueType> = Vec<DataObj<IdType, ValueType>>;
+pub type PMem<IdType, ValueType> = Box::<dyn IMem<IdType = IdType, ValueType = ValueType> + Send>;
 pub type Operations<IdType, ValueType> = Vec<Operation<IdType, ValueType>>;
 pub type OperationSender<IdType, ValueType> = crossbeam_channel::Sender<Operation<IdType, ValueType>>;
+pub type DataObjs<IdType, ValueType> = Vec<DataObj<IdType, ValueType>>;
 
 pub trait IObj {
     type IdType: Clone;
@@ -26,8 +26,8 @@ pub trait IRule: IObj
 where Self::IdType: Clone + Eq + Hash + Display, Self::ValueType: Clone 
 {
     fn about_rule(&self) -> &'static str { "This is a mem rule" }
-    fn obj_type_needed(&self) -> &NeedsMap;
-    fn run(&mut self, env: DataObj<Self::IdType, Self::ValueType>, objs_data: Vec<DataObjs<Self::IdType, Self::ValueType>>)
+    fn obj_needs(&self) -> &Needs<Self::IdType>;
+    fn run(&mut self, env_data: DataObj<Self::IdType, Self::ValueType>, offered_data: Offer<Self::IdType, Self::ValueType>)
      -> Option<Operations<Self::IdType, Self::ValueType>>;
 }
 
@@ -37,9 +37,9 @@ where Self::ValueType: Clone + 'static , Self::IdType: Clone + Eq + Hash + Displ
     fn get_pref_objs(&self) -> &HashMap<Self::IdType, PObj<Self::IdType, Self::ValueType>>;
     fn get_pref_rules(&self) -> &HashMap<Self::IdType, PRule<Self::IdType, Self::ValueType>>;
     fn set_outter_sender(&mut self, s: crossbeam_channel::Sender<Operation<Self::IdType, Self::ValueType>>);
-    fn add_obj(&mut self, op: Box::<dyn IObj<IdType = Self::IdType, ValueType = Self::ValueType> + Send>);
-    fn add_rule(&mut self, rp: Box::<dyn IRule<IdType = Self::IdType, ValueType = Self::ValueType> + Send>);
-    fn add_mem(&mut self, mp: Box::<dyn IMem<IdType = Self::IdType, ValueType = Self::ValueType> + Send>);
+    fn add_obj(&mut self, op: PObj<Self::IdType, Self::ValueType>);
+    fn add_rule(&mut self, rp: PRule<Self::IdType, Self::ValueType>);
+    fn add_mem(&mut self, mp: PMem<Self::IdType, Self::ValueType>);
     fn drop_obj(&mut self, id: &Self::IdType);
     fn drop_rule(&mut self, id: &Self::IdType);
     fn init(&mut self) -> Result<OperationSender<Self::IdType, Self::ValueType>, MemError>;
@@ -84,33 +84,6 @@ pub enum OperationType {
     MemAttachOutter,
     MemAttachInner,
     Stop
-}
-
-#[derive(Clone)]
-pub enum NeedCount {
-    All,
-    Some(usize)
-}
-
-impl Default for NeedCount {
-    fn default() -> Self {
-        Self::All
-    }
-}
-
-impl NeedCount {
-    pub fn is_some(&self) -> bool {
-        match self {
-            NeedCount::All => false,
-            NeedCount::Some(_) => true,
-        }
-    }
-    pub fn is_all(&self) -> bool {
-        match self {
-            NeedCount::All => true,
-            NeedCount::Some(_) => false,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -158,5 +131,37 @@ pub struct DataObj<IdType, ValueType> {
 impl<IdType, ValueType> DataObj<IdType, ValueType> {
     pub fn new(id: IdType, data: Vec<ValueType>) -> Self {
         Self { id, data }
+    }
+}
+
+pub struct GeneralNeed {
+    pub tid: TypeId,
+    pub count: Option<usize>,
+    pub is_take: bool,
+    pub is_random: bool
+}
+
+pub struct Needs<T> {
+    pub general_count: usize,
+    pub specific_count: usize,
+    pub pos_map: HashMap<TypeId, usize>,
+    pub general: Vec<GeneralNeed>,
+    pub specific: Vec<(T, bool)>,
+}
+
+pub struct Offer<T, V> {
+    /// 指定类型对象，其顺序为指定时的顺序
+    pub general: Vec<DataObjs<T, V>>,
+    /// 指定id的对象，其顺序为指定时的顺序
+    pub specific: Vec<DataObj<T, V>>
+}
+impl<T: Clone, V: Clone> Offer<T, V> {
+    pub fn new(general_count: usize) -> Self {
+        let mut g = Vec::with_capacity(general_count);
+        g.resize(general_count, Vec::new());
+        Self {
+            general: g,
+            specific: Vec::new()
+        }
     }
 }

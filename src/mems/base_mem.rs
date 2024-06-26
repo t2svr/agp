@@ -1,12 +1,14 @@
-use crate::{errors::MemError, core::NeedCount};
+use crate::errors::MemError;
 use crate::core::*;
 use crate::meme_derive::IObj;
 use crate::lib_info;
 
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::thread;
 use std::hash::Hash;
 use crossbeam_channel::{Receiver, Sender};
+use rand::prelude::*;
 use std::fmt::Display;
 
 use log::Level;
@@ -23,8 +25,8 @@ where IdType: Clone + Eq + Hash + Display + 'static, ValueType: Clone + 'static 
     #[data]
     vec_data: Vec<ValueType>,
 
-    objs: HashMap<IdType, Box<dyn IObj<IdType = IdType, ValueType = ValueType> + Send>>,
-    rules: HashMap<IdType, Box<dyn IRule<IdType = IdType, ValueType = ValueType>  + Send>>,
+    objs: HashMap<IdType, PObj<IdType, ValueType>>,
+    rules: HashMap<IdType, PRule<IdType, ValueType>>,
     sub_mem_handels: Option<HashMap<IdType, thread::JoinHandle<Result<bool, MemError>>>>,
 
     op_queue: Vec<Operation<IdType, ValueType>>,
@@ -41,25 +43,21 @@ where IdType: Clone + Eq + Hash + Display + 'static, ValueType: Clone + 'static 
 
 impl<T, V> IMem for BaseMem<T, V>
 where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
-    fn get_pref_objs(&self) -> &HashMap<Self::IdType, Box<(dyn IObj<IdType = T, ValueType = V> + Send + 'static)>> { &self.objs }
-    fn get_pref_rules(&self) -> &HashMap<Self::IdType, Box<dyn IRule<IdType = T, ValueType = V> + Send>> { &self.rules }
+    fn get_pref_objs(&self) -> &HashMap<Self::IdType, PObj<Self::IdType, Self::ValueType>> { &self.objs }
+    fn get_pref_rules(&self) -> &HashMap<Self::IdType, PRule<Self::IdType, Self::ValueType>> { &self.rules }
     fn set_outter_sender(&mut self, s: crossbeam_channel::Sender<Operation<T, V>>) { self.outter_sender = Some(s); }
 
     fn ready(&self) -> bool { self.ready }
     
-    fn add_obj(&mut self, op: Box<(dyn IObj<IdType = T, ValueType = V> + Send + 'static)>) {
-        if let Some(old) = self.objs.get_mut(&op.get_id()) {
-            *old = op;
-        } else {
-            self.objs.insert(op.get_id(), op);
-        }
+    fn add_obj(&mut self, op: PObj<Self::IdType, Self::ValueType>) {
+        self.objs.insert(op.get_id(), op);
     }
     
-    fn add_rule(&mut self,  rp: Box::<dyn IRule<IdType = Self::IdType, ValueType = Self::ValueType> + Send>) {
+    fn add_rule(&mut self,  rp: PRule<Self::IdType, Self::ValueType>) {
         self.rules.insert(rp.get_id(), rp);
     }
 
-    fn add_mem(&mut self, mut mp: Box::<dyn IMem<IdType = Self::IdType, ValueType = Self::ValueType> + Send>) {
+    fn add_mem(&mut self, mut mp: PMem<Self::IdType, Self::ValueType>) {
         let id = mp.get_id();
         if let Ok(sender) = mp.init() {
             self.inner_senders.as_mut().unwrap().insert(id.clone(), sender);
@@ -80,7 +78,7 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
     }
 
     fn drop_obj(&mut self, id: &Self::IdType) {
-        self.objs.remove(id);
+       self.objs.remove(id);
     }
     fn drop_rule(&mut self, id: &Self::IdType) {
         self.rules.remove(id);
@@ -204,40 +202,58 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
             }//while let
 
             for r in self.rules.values_mut() { //todo: 多线程化
-                let needed_types = r.obj_type_needed();
-
-                let mut obj_vec_clones: Vec<DataObjs<T, V>> = Vec::with_capacity(needed_types.len());
-                let mut obj_count: Vec<usize> = Vec::with_capacity(needed_types.len());
-                let mut obj_to_remove: Vec<T> = Vec::new();
-                obj_vec_clones.resize(needed_types.len(), Vec::new());
-                obj_count.resize(needed_types.len(), 0usize);
-
-                for (index, nc, _) in needed_types.values() {
-                    if let NeedCount::Some(c) = nc {
-                        obj_count[*index] = *c;
-                    }
-                }
+                let needs = r.obj_needs();
+                let mut offer = Offer::<T, V>::new(needs.general_count);
+                let mut rand_picks: Vec<Vec<Rc<&PObj<T, V>>>> = Vec::new();
+                let mut will_remove: Vec<T> = Vec::new();
+                rand_picks.resize(needs.general_count, Vec::new());
                 
-                for (id, v) in self.objs.iter() { //这个地方有优化的空间 增加对象索引可以避免这个循环
-                    if let Some((index, nc, is_take)) = needed_types.get(&v.get_obj_type().tid) {
-                        if nc.is_some()  {
-                            if obj_count[*index] == 0 {
-                                continue;
+                for (id, is_take) in needs.specific.iter() {
+                    if let Some(o) = self.objs.get(id) {
+                        offer.specific.push(DataObj { id: o.get_id(), data: o.get_copy_data_vec() });
+                    }
+                    if *is_take {
+                        self.objs.remove(id);
+                    }
+                }
+
+                let mut count = needs.general.iter().map(|n| n.count).collect::<Vec<_>>();
+               for o in self.objs.values() {
+                    if let Some(pos) = needs.pos_map.get(&o.get_obj_type().tid) {
+                        if needs.general[*pos].is_random {
+                            rand_picks[*pos].push(Rc::new(o));
+                        } else {
+                            if let Some(ref mut c) = count[*pos] {
+                                if *c == 0 {
+                                    continue;
+                                }
+                                *c -= 1;
                             }
-                            obj_count[*index] -= 1;
-                        }
-                        obj_vec_clones[*index].push(DataObj::new(id.clone(), v.get_copy_data_vec()));
-                        if *is_take {
-                            obj_to_remove.push(id.clone());
+                            if needs.general[*pos].is_take {
+                                will_remove.push(o.get_id());
+                            }
+                            offer.general[*pos].push(DataObj { id: o.get_id(), data:o.get_copy_data_vec() });
                         }
                     }
                 }
 
-                for id in obj_to_remove {
+                let mut rng = thread_rng();
+                for (i, ptrs)in rand_picks.iter_mut().enumerate() {
+                    if ptrs.is_empty() { continue; }
+                    ptrs.shuffle(&mut rng);
+                    for p in ptrs.iter().take(needs.general[i].count.unwrap_or(ptrs.len())) {
+                        if needs.general[i].is_take {
+                            will_remove.push(p.get_id());
+                        }
+                        offer.general[i].push(DataObj { id: p.get_id(), data: p.get_copy_data_vec() });
+                    }
+                }
+               
+                for id in will_remove { //取决于Hasher
                     self.objs.remove(&id);
                 }
-                
-                if let Some(mut op) = r.run(DataObj::new(self.id.clone(), self.vec_data.clone()), obj_vec_clones) {
+              
+                if let Some(mut op) = r.run(DataObj::new(self.id.clone(), self.vec_data.clone()), offer) {
                     self.op_queue.append(&mut op);
                 }
             }
@@ -245,9 +261,7 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
             if let Ok(msg) = self.msg_receiver.try_recv() {
                 self.op_queue.push(msg);
             }
-        }
-    
-        
+        }//loop
     }
 
    

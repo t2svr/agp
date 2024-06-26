@@ -1,10 +1,10 @@
+
 use krnl::device::Device;
 use once_cell::sync;
 
 pub static DEVICE: sync::Lazy<Device> = sync::Lazy::new(|| {
     Device::builder().build().ok().unwrap_or(Device::host())
 });
-
 
 // #[module]
 // pub mod kernels {

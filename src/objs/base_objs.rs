@@ -1,8 +1,8 @@
-use std::{fmt::Display, hash::Hash};
+use std::{fmt::Display, hash::Hash, ops::Add};
 
 use meme_derive::IObj;
 
-use crate::{core::{DataObj, IObj, IRule, NeedCount, NeedsMap, ObjCat, ObjType}, helpers::needs_map_builder};
+use crate::{core::{DataObj, IObj, IRule, Needs, ObjCat, ObjType, Offer, Operation, PObj}, helpers::needs_map_builder};
 
 #[derive(IObj)]
 #[id_type(T)]
@@ -36,53 +36,69 @@ where T: Clone + 'static, V: Clone + 'static {
     id: T,
     #[data]
     some_exposed_data: Vec<V>,
-    needed_types: NeedsMap,
+    needed_types: Needs<T>,
     some_private_data: i64
 }
 
 impl<T: Clone, V: Clone> ExampleRule<T, V> {
     pub fn new(id: T) -> Self {
         Self{ 
-            id, some_exposed_data: Vec::new(), some_private_data: 0i64,
+            id, 
+            some_exposed_data: Vec::new(), 
+            some_private_data: 0i64,
             needed_types: needs_map_builder()
-                .reads::<ExampleObj<T, V>>(NeedCount::All)// objs_data[0]
-                //.takes::<ExampleObj<T, V>>(NeedCount::Some(10)) // objs_data[1]
+                .randomly()
+                //.sequentially()
+                .reads()
+                //.takes()
+                .all::<ExampleObj<T, V>>()
+                //.some::<ExampleObj<T, V>>(10)
+                //.the(T::new(24601))
                 .build()
         }
     }
 }
 
-impl<T: Clone + Hash + Display + Eq + Send + Default, V: Clone + Send> IRule for ExampleRule<T, V> {
-    fn obj_type_needed(&self) -> &crate::core::NeedsMap {
+impl<T, V> IRule for ExampleRule<T, V>
+where
+T: Clone + Hash + Display + Eq + Send + Default,
+V: Clone + Send + Add<V, Output = V>
+{
+    fn obj_needs(&self) -> &crate::core::Needs<T> {
         &self.needed_types
     }
 
     /// 解释：  
-    /// env: 当前规则所在为环境的信息， env.0 为环境的膜的id,  env.1 为环境的膜的数据  
-    /// objs_data: 输入的各种对象的 id 和数据
-    /// objs_data\[ i \] 为第i种输入的对象， i 的顺序为 needs_map_builder 中设定时的顺序， 本例中 objs_data\[ 0 \] 为 ExampleObj 对象  
-    /// objs_data\[ i \]\[ j \] 为输入的第 j 个第 i 种对象， j 的顺序认作随机
-     fn run(&mut self, env: DataObj<Self::IdType, Self::ValueType>, objs_data: Vec<crate::core::DataObjs<Self::IdType, Self::ValueType>>) -> Option<Vec<crate::core::Operation<Self::IdType, Self::ValueType>>> {
-        if objs_data[0].is_empty() {
+    /// env: 当前规则所在环境的数据对象  
+    /// offered_data: 根据 fn obj_needs(&self) 中返回的对象需求信息获取到的数据对象  
+    /// 返回：  
+    ///     - None 表示该规则不被触发或者没有对其他对象的影响  
+    ///     - Some(x) x为产生的一系列影响，例如新增对象，移除对象，破坏膜等等  
+     fn run(&mut self, env: DataObj<Self::IdType, Self::ValueType>, mut offered_data: Offer<Self::IdType, Self::ValueType>) -> Option<Vec<Operation<Self::IdType, Self::ValueType>>> {
+        if offered_data.general.is_empty()
+        && offered_data.specific.is_empty() {
             return None;
         }
-        let mut new_obj: Vec<crate::core::PObj<Self::IdType, Self::ValueType>> = Vec::new();
+        let mut new_obj: Vec<PObj<Self::IdType, Self::ValueType>> = Vec::new();
 
-        // Todo: 在这里实现规则的逻辑 创建规则产生的操作
-        if self.some_private_data <= 100 {
+        // Todo: 在这里实现规则的逻辑 返回产生的操作
+        if self.some_private_data <= 10 {
             self.some_private_data += 1;
+        } else {
+            return None;
         }
-        new_obj.push(Box::new(ExampleObj::new(Default::default())));
-        let res: Vec<crate::core::Operation<Self::IdType, Self::ValueType>> = vec![
-            crate::core::Operation::obj_add_batch(env.id, new_obj)
-        ];
-        //
+        while let Some(mut o) = offered_data.general[0].pop() {
+            if let Some(top) = o.data.last() {
+                o.data.push((*top).clone() + (*top).clone());
+            }
+            new_obj.push(Box::new(ExampleObj{ id: o.id, some_exposed_data: o.data }));
+        }
+       
+        Some(vec![Operation::obj_add_batch(env.id, new_obj)])  
+    }
 
-        Some(res)  
-    }
     fn about_rule(&self) -> &'static str {
-        "这是一个可选的方法，可以用于日志的输出"
+        "这是一个可选的方法，可以用于日志的输出中规则的说明"
     }
-    
    
 }
