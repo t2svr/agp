@@ -1,10 +1,12 @@
 use crate::errors::MemError;
 use crate::core::*;
+use crate::helpers;
 use crate::meme_derive::IObj;
 use crate::lib_info;
 
+use std::any::TypeId;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::collections::HashSet;
 use std::thread;
 use std::hash::Hash;
 use crossbeam_channel::{Receiver, Sender};
@@ -91,176 +93,228 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
         Ok(self.msg_sender.clone())
     }
 
-    fn run(&mut self) -> bool {
-        loop {
-            while let Some(mut msg) = self.op_queue.pop() {
-                match msg.op_type {
-                    OperationType::ObjAdd => {
-                        if let MsgDataObj::Obj(o) = msg.data {
-                            self.add_obj(o);
-                            
-                        }
-                    },
-                    OperationType::ObjAddBatch => {
-                        if let MsgDataObj::Objs(mut objs) = msg.data {
-                            while let Some(o) = objs.pop() {
-                                self.add_obj(o);
-                            }
-                        }
-                    },
-                    OperationType::ObjRemove => {
-                        self.drop_obj(&msg.target_id);
-                    },
-                    OperationType::ObjOut => {
-                        if msg.target_id == self.id {
-                            if let MsgDataObj::Obj(o) = msg.data {
-                                self.add_obj(o);
-                            }
-                        } else if let Err(e) = self.outter_sender.as_ref().unwrap().send(msg) {
-                            log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its outter: {:?}", self.id, e);
-                        }
-                    },
-                    OperationType::ObjIn => {
-                        let inner_id = msg.target_id.clone();
-                        if self.sub_mem_handels.as_ref().unwrap().contains_key(&inner_id) {
-                            if let Some(sender) = self.inner_senders.as_ref().unwrap().get(&inner_id) {
-                                msg.op_type = OperationType::ObjAdd;
-                                if let Err(e) = sender.send(msg) {
-                                    log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its inner {}: {:?}", self.id, inner_id, e);
-                                }
-                            }
-                        }
-                    },
-                    OperationType::MemAdd => {
-                        if let MsgDataObj::Membrane(m) = msg.data {
-                            self.add_mem(m);
-                        }
-                    },
-                    OperationType::MemRemove => {
-                        let sub_mem_id = msg.target_id.clone();
-                        if let Some(handel) = self.sub_mem_handels.as_mut().unwrap().remove(&sub_mem_id) {
-                            if let Some(sender) = self.inner_senders.as_mut().unwrap().remove(&sub_mem_id) {
-                                msg.op_type = OperationType::Stop;
-                                if let Err(e) = sender.send(msg) {
-                                    log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its inner {}: {:?}", self.id, sub_mem_id, e);
-                                }
-                                let _ = handel.join().expect("Couldn't join on the associated thread");
-                            }
-                        }
-                      
-                    },
-                    OperationType::MemAttachOutter => {
-                        if let MsgDataObj::Sender(s) = msg.data {
-                            self.outter_sender = Some(s);
-                        }
-                    },
-                    OperationType::MemAttachInner => {
-                        if let MsgDataObj::Inners((is, smh)) = msg.data {
-                            for (id, s) in is {
-                                self.inner_senders.as_mut().unwrap().insert(id,s);
-                            }
-                            for (id, h) in smh {
-                                self.sub_mem_handels.as_mut().unwrap().insert(id,h);
-                            }
-                        }
-                        assert_eq!(self.inner_senders.as_ref().unwrap().len(), self.sub_mem_handels.as_ref().unwrap().len(),)
-                    },
-                    OperationType::RuleAdd => {
-                        if let MsgDataObj::Rule(r) = msg.data {
-                            self.add_rule(r);
-                        }
-                    },
-                    OperationType::RuleAddBatch => {
-                        if let MsgDataObj::Rules(mut rules) = msg.data {
-                            while let Some(r) = rules.pop() {
-                                self.add_rule(r);
-                            }
-                        }
-                    },
-                    OperationType::Stop => {
-                        if !self.op_queue.is_empty() {
-                            self.op_queue.push(msg);
-                            let last_pos = self.op_queue.len() - 1;
-                            self.op_queue.swap(0, last_pos);
-                            continue;
-                        }
-                        for s in self.inner_senders.as_ref().unwrap().values() {
-                            let _ = s.send( Operation::<Self::IdType, Self::ValueType> {
-                                op_type: OperationType::MemAttachOutter,
-                                target_id: self.id.clone(),
-                                data: MsgDataObj::Sender(self.outter_sender.as_ref().unwrap().clone())
-                            });
-                        }
-                        let _ = self.outter_sender.as_ref().unwrap().send( Operation::<Self::IdType, Self::ValueType> {
-                            op_type: OperationType::MemAttachInner,
-                            target_id: self.id.clone(),
-                            data: MsgDataObj::Inners((self.inner_senders.take().unwrap(), self.sub_mem_handels.take().unwrap()))
-                        });
-                        return true;
-                    },
+    #[inline]
+    fn actions_on(&mut self, mut op: Operation<T, V>) -> bool {
+        match op.op_type {
+            OperationType::ObjAdd => {
+                if let MsgDataObj::Obj(o) = op.data {
+                    self.add_obj(o);
                 }
-            }//while let
-
-            for r in self.rules.values_mut() { //todo: 多线程化
-                let needs = r.obj_needs();
-                let mut offer = Offer::<T, V>::new(needs.general_count);
-                let mut rand_picks: Vec<Vec<Rc<&PObj<T, V>>>> = Vec::new();
-                let mut will_remove: Vec<T> = Vec::new();
-                rand_picks.resize(needs.general_count, Vec::new());
-                
-                for (id, is_take) in needs.specific.iter() {
-                    if let Some(o) = self.objs.get(id) {
-                        offer.specific.push(DataObj { id: o.get_id(), data: o.get_copy_data_vec() });
-                    }
-                    if *is_take {
-                        self.objs.remove(id);
+            },
+            OperationType::ObjAddBatch => {
+                if let MsgDataObj::Objs(mut objs) = op.data {
+                    while let Some(o) = objs.pop() {
+                        self.add_obj(o);
                     }
                 }
-
-                let mut count = needs.general.iter().map(|n| n.count).collect::<Vec<_>>();
-               for o in self.objs.values() {
-                    if let Some(pos) = needs.pos_map.get(&o.get_obj_type().tid) {
-                        if needs.general[*pos].is_random {
-                            rand_picks[*pos].push(Rc::new(o));
-                        } else {
-                            if let Some(ref mut c) = count[*pos] {
-                                if *c == 0 {
-                                    continue;
-                                }
-                                *c -= 1;
-                            }
-                            if needs.general[*pos].is_take {
-                                will_remove.push(o.get_id());
-                            }
-                            offer.general[*pos].push(DataObj { id: o.get_id(), data:o.get_copy_data_vec() });
+            },
+            OperationType::ObjRemove => {
+                self.drop_obj(&op.target_id);
+            },
+            OperationType::ObjOut => {
+                if op.target_id == self.id {
+                    if let MsgDataObj::Obj(o) = op.data {
+                        self.add_obj(o);
+                    }
+                } else if let Err(e) = self.outter_sender.as_ref().unwrap().send(op) {
+                    log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its outter: {:?}", self.id, e);
+                }
+            },
+            OperationType::ObjIn => {
+                let inner_id = op.target_id.clone();
+                if self.sub_mem_handels.as_ref().unwrap().contains_key(&inner_id) {
+                    if let Some(sender) = self.inner_senders.as_ref().unwrap().get(&inner_id) {
+                        op.op_type = OperationType::ObjAdd;
+                        if let Err(e) = sender.send(op) {
+                            log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its inner {}: {:?}", self.id, inner_id, e);
                         }
                     }
                 }
-
-                let mut rng = thread_rng();
-                for (i, ptrs)in rand_picks.iter_mut().enumerate() {
-                    if ptrs.is_empty() { continue; }
-                    ptrs.shuffle(&mut rng);
-                    for p in ptrs.iter().take(needs.general[i].count.unwrap_or(ptrs.len())) {
-                        if needs.general[i].is_take {
-                            will_remove.push(p.get_id());
-                        }
-                        offer.general[i].push(DataObj { id: p.get_id(), data: p.get_copy_data_vec() });
-                    }
+            },
+            OperationType::MemAdd => {
+                if let MsgDataObj::Membrane(m) = op.data {
+                    self.add_mem(m);
                 }
-               
-                for id in will_remove { //取决于Hasher
-                    self.objs.remove(&id);
+            },
+            OperationType::MemRemove => {
+                let sub_mem_id = op.target_id.clone();
+                if let Some(handel) = self.sub_mem_handels.as_mut().unwrap().remove(&sub_mem_id) {
+                    if let Some(sender) = self.inner_senders.as_mut().unwrap().remove(&sub_mem_id) {
+                        op.op_type = OperationType::Stop;
+                        if let Err(e) = sender.send(op) {
+                            log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its inner {}: {:?}", self.id, sub_mem_id, e);
+                        }
+                        let _ = handel.join().expect("Couldn't join on the associated thread");
+                    }
                 }
               
-                if let Some(mut op) = r.run(DataObj::new(self.id.clone(), self.vec_data.clone()), offer) {
-                    self.op_queue.append(&mut op);
+            },
+            OperationType::MemAttachOutter => {
+                if let MsgDataObj::Sender(s) = op.data {
+                    self.outter_sender = Some(s);
+                }
+            },
+            OperationType::MemAttachInner => {
+                if let MsgDataObj::Inners((is, smh)) = op.data {
+                    for (id, s) in is {
+                        self.inner_senders.as_mut().unwrap().insert(id,s);
+                    }
+                    for (id, h) in smh {
+                        self.sub_mem_handels.as_mut().unwrap().insert(id,h);
+                    }
+                }
+                assert_eq!(self.inner_senders.as_ref().unwrap().len(), self.sub_mem_handels.as_ref().unwrap().len(),)
+            },
+            OperationType::RuleAdd => {
+                if let MsgDataObj::Rule(r) = op.data {
+                    self.add_rule(r);
+                }
+            },
+            OperationType::RuleAddBatch => {
+                if let MsgDataObj::Rules(mut rules) = op.data {
+                    while let Some(r) = rules.pop() {
+                        self.add_rule(r);
+                    }
+                }
+            },
+            OperationType::Stop => {
+                if !self.op_queue.is_empty() {
+                    self.op_queue.push(op);
+                    let last_pos = self.op_queue.len() - 1;
+                    self.op_queue.swap(0, last_pos); // 延迟Stop
+                    return true;
+                }
+                for s in self.inner_senders.as_ref().unwrap().values() {
+                    let _ = s.send( Operation::<Self::IdType, Self::ValueType> {
+                        op_type: OperationType::MemAttachOutter,
+                        target_id: self.id.clone(),
+                        data: MsgDataObj::Sender(self.outter_sender.as_ref().unwrap().clone())
+                    });
+                }
+                let _ = self.outter_sender.as_ref().unwrap().send( Operation::<Self::IdType, Self::ValueType> {
+                    op_type: OperationType::MemAttachInner,
+                    target_id: self.id.clone(),
+                    data: MsgDataObj::Inners((self.inner_senders.take().unwrap(), self.sub_mem_handels.take().unwrap()))
+                });
+                return false;
+            },
+        }
+        return true;
+    }
+
+    fn run(&mut self) -> bool { // todo: 按照不同的类型分开存放对象 规则执行时便无需重新统计
+        loop {
+            while let Some(msg) = self.op_queue.pop() {
+                if self.actions_on(msg) == false {
+                    return true;
+                }
+            }
+
+            let mut will_run: Vec<(T, Offer<T, V>)> = Vec::new();
+            let env_data = DataObj::new(self.id.clone(), self.vec_data.clone());
+
+            let mut gene_obj_stats: HashMap<TypeId, Vec<T>> = HashMap::new();
+            let mut r_rules: Vec<&PRule<T,V>> = Vec::new();
+
+            for r in self.rules.values() {
+                for n in r.obj_needs().general.iter() {
+                    if !gene_obj_stats.contains_key(&n.tid) {
+                        gene_obj_stats.insert(n.tid, Vec::new());
+                    }
+                }
+                r_rules.push(r);
+            }
+
+            self.objs.values().for_each(|o| {
+                if let Some(v) = gene_obj_stats.get_mut(&o.get_obj_type().tid) {
+                    v.push(o.get_id());
+                }
+            });
+
+            let mut rng = thread_rng();
+            r_rules.shuffle(&mut rng);
+            for r in r_rules {
+                let mut ofr: Offer<T, V> = Offer::new(r.obj_needs().general_count);
+                let mut will_remove: Vec<T> = Vec::new();
+                let mut spi_set: HashSet<T> = HashSet::new();
+                let mut spi_count_of: HashMap<TypeId, usize> = HashMap::new();
+                if !r.obj_needs().specific.is_empty() {
+                    if r.obj_needs().specific.iter().any(|(id, _)| {
+                        if let Some(o) = self.objs.get(id) {
+                            if let Some(c) = spi_count_of.get_mut(&o.get_obj_type().tid) {
+                                *c += 1;
+                            } else {
+                                spi_count_of.insert(o.get_obj_type().tid, 1);
+                            }
+                            false
+                        } else { true }
+                    }) { continue; }
+                    for (oid, is_take) in r.obj_needs().specific.iter() {
+                        ofr.specific.push(DataObj::new(oid.clone(), self.objs.get(oid).unwrap().get_copy_data_vec()));
+                        if *is_take {
+                            will_remove.push(oid.clone());
+                        }
+                        spi_set.insert(oid.clone());
+                    }
+                }
+                
+                let mut satisfied = true;
+                let mut will_remove_gener: Vec<Vec<usize>> = Vec::new();
+                will_remove_gener.resize(r.obj_needs().general_count, Vec::new());
+                for (i, g) in r.obj_needs().general.iter().enumerate() {
+                    let objs_of_g = gene_obj_stats.get(&g.tid).unwrap();
+                    let spi_count_in_g = spi_count_of.get(&g.tid).unwrap_or(&0);
+                    if let Some(c) = g.count {
+                        if c > objs_of_g.len() - spi_count_in_g {
+                            satisfied = false;
+                            break;
+                        }
+                    }
+                    let max_need_count = g.count.unwrap_or(objs_of_g.len()) + spi_count_in_g;
+                    let mut selected_index = (0..objs_of_g.len()).collect::<Vec<_>>();
+                    if g.is_random {
+                        selected_index.shuffle(&mut rng);
+                    }
+                    for si in selected_index.iter().take(max_need_count) {
+                        if ofr.general[i].len() == max_need_count - spi_count_in_g {
+                            break;
+                        }
+                        if !spi_set.contains(&objs_of_g[*si]) {
+                            let o = self.objs.get(&objs_of_g[*si]).unwrap();
+                            ofr.general[i].push(DataObj::new(o.get_id().clone(), o.get_copy_data_vec()));
+                            if g.is_take {
+                                will_remove.push(o.get_id().clone());
+                            }
+                        }
+                        will_remove_gener[i].push(*si);
+                    }
+                }
+
+                if satisfied {// apply changes and clone data
+                    for oid in will_remove {
+                        self.objs.remove(&oid);
+                    }
+                    for (i, g) in r.obj_needs().general.iter().enumerate() {
+                        if let Some(v) = gene_obj_stats.get_mut(&g.tid) {
+                            helpers::vec_batch_remove_inplace(v, &will_remove_gener[i]);
+                        }
+                    }
+                    will_run.push((r.get_id(), ofr));
+                }
+            }
+
+            while let Some((rid, offer)) = will_run.pop() {
+                if let Some(r) =  self.rules.get_mut(&rid) {
+                    if let Some(mut op) = r.run(env_data.clone(), offer) {
+                        self.op_queue.append(&mut op);
+                    }
                 }
             }
 
             if let Ok(msg) = self.msg_receiver.try_recv() {
                 self.op_queue.push(msg);
             }
+          
         }//loop
     }
 

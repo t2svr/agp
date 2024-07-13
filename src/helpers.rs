@@ -132,24 +132,24 @@ pub fn make_gpu_buffer<T: krnl::scalar::Scalar>(data: Vec<T>) -> Option<BufferBa
 #[inline]
 #[allow(unused_assignments)]
 pub fn vec_batch_remove_inplace<T>(v: &mut Vec<T>, indexes: &Vec<usize>) {
-    let mut remove_tag = Vec::<bool>::with_capacity(v.len());
-    remove_tag.resize(v.len(), false);
-    for i in indexes {
-        remove_tag[*i] = true;
-    }
+    let mut indexes_sorted = indexes.clone();
+    indexes_sorted.sort_unstable();
     let (mut cp_start_pos, mut cp_end_pos, mut cp_to_pos) = (0usize, 0usize, 0usize);
     let mut i = 0;
-    while i < indexes.len() {
-        cp_to_pos = indexes[i] - i;
-        cp_start_pos = indexes[i]+1;
-        while i+1 < indexes.len() 
-        && indexes[i+1] == cp_start_pos {
+    while i < indexes_sorted.len() {
+        assert!((0..v.len()).contains(&indexes_sorted[i]));
+        cp_to_pos = indexes_sorted[i] - i;
+        cp_start_pos = indexes_sorted[i] + 1;
+        while i + 1 < indexes_sorted.len() 
+        && cp_start_pos == indexes_sorted[i + 1] {
             cp_start_pos += 1;
             i += 1;
         }
-        cp_end_pos = if i+1 >= indexes.len()  {
-            v.len() - 1
-        } else { indexes[i+1] - 1 };
+        cp_end_pos = if i + 1 < indexes_sorted.len() {
+            indexes_sorted[i + 1] - 1
+        } else { 
+             v.len() - 1 
+        };
         if cp_start_pos >= v.len() {
             break;
         }

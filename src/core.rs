@@ -44,6 +44,7 @@ where Self::ValueType: Clone + 'static , Self::IdType: Clone + Eq + Hash + Displ
     fn drop_rule(&mut self, id: &Self::IdType);
     fn init(&mut self) -> Result<OperationSender<Self::IdType, Self::ValueType>, MemError>;
     fn ready(&self) -> bool;
+    fn actions_on(&mut self, op: Operation<Self::IdType, Self::ValueType>) -> bool;
     fn run(&mut self) -> bool;
 
     fn start(&mut self) -> Result<bool, MemError> {
@@ -134,6 +135,7 @@ impl<IdType, ValueType> DataObj<IdType, ValueType> {
     }
 }
 
+#[derive(Clone)]
 pub struct GeneralNeed {
     pub tid: TypeId,
     pub count: Option<usize>,
@@ -149,11 +151,17 @@ pub struct Needs<T> {
     pub specific: Vec<(T, bool)>,
 }
 
+#[derive(Clone)]
 pub struct Offer<T, V> {
     /// 指定类型对象，其顺序为指定时的顺序
     pub general: Vec<DataObjs<T, V>>,
     /// 指定id的对象，其顺序为指定时的顺序
     pub specific: Vec<DataObj<T, V>>
+}
+impl<T, V> Default for Offer<T, V> {
+    fn default() -> Self {
+        Self { general: Default::default(), specific: Default::default() }
+    }
 }
 impl<T: Clone, V: Clone> Offer<T, V> {
     pub fn new(general_count: usize) -> Self {
