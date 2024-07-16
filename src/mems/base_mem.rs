@@ -94,54 +94,54 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
     }
 
     #[inline]
-    fn actions_on(&mut self, mut op: Operation<T, V>) -> bool {
-        match op.op_type {
+    fn actions_on(&mut self, mut operation: Operation<T, V>) -> bool {
+        match operation.op_type {
             OperationType::ObjAdd => {
-                if let MsgDataObj::Obj(o) = op.data {
+                if let MsgDataObj::Obj(o) = operation.data {
                     self.add_obj(o);
                 }
             },
             OperationType::ObjAddBatch => {
-                if let MsgDataObj::Objs(mut objs) = op.data {
+                if let MsgDataObj::Objs(mut objs) = operation.data {
                     while let Some(o) = objs.pop() {
                         self.add_obj(o);
                     }
                 }
             },
             OperationType::ObjRemove => {
-                self.drop_obj(&op.target_id);
+                self.drop_obj(&operation.target_id);
             },
             OperationType::ObjOut => {
-                if op.target_id == self.id {
-                    if let MsgDataObj::Obj(o) = op.data {
+                if operation.target_id == self.id {
+                    if let MsgDataObj::Obj(o) = operation.data {
                         self.add_obj(o);
                     }
-                } else if let Err(e) = self.outter_sender.as_ref().unwrap().send(op) {
+                } else if let Err(e) = self.outter_sender.as_ref().unwrap().send(operation) {
                     log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its outter: {:?}", self.id, e);
                 }
             },
             OperationType::ObjIn => {
-                let inner_id = op.target_id.clone();
+                let inner_id = operation.target_id.clone();
                 if self.sub_mem_handels.as_ref().unwrap().contains_key(&inner_id) {
                     if let Some(sender) = self.inner_senders.as_ref().unwrap().get(&inner_id) {
-                        op.op_type = OperationType::ObjAdd;
-                        if let Err(e) = sender.send(op) {
+                        operation.op_type = OperationType::ObjAdd;
+                        if let Err(e) = sender.send(operation) {
                             log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its inner {}: {:?}", self.id, inner_id, e);
                         }
                     }
                 }
             },
             OperationType::MemAdd => {
-                if let MsgDataObj::Membrane(m) = op.data {
+                if let MsgDataObj::Membrane(m) = operation.data {
                     self.add_mem(m);
                 }
             },
             OperationType::MemRemove => {
-                let sub_mem_id = op.target_id.clone();
+                let sub_mem_id = operation.target_id.clone();
                 if let Some(handel) = self.sub_mem_handels.as_mut().unwrap().remove(&sub_mem_id) {
                     if let Some(sender) = self.inner_senders.as_mut().unwrap().remove(&sub_mem_id) {
-                        op.op_type = OperationType::Stop;
-                        if let Err(e) = sender.send(op) {
+                        operation.op_type = OperationType::Stop;
+                        if let Err(e) = sender.send(operation) {
                             log!(target: lib_info::LOG_TARGET_MEM, Level::Error, "Mem {} failed to send message to its inner {}: {:?}", self.id, sub_mem_id, e);
                         }
                         let _ = handel.join().expect("Couldn't join on the associated thread");
@@ -150,12 +150,12 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
               
             },
             OperationType::MemAttachOutter => {
-                if let MsgDataObj::Sender(s) = op.data {
+                if let MsgDataObj::Sender(s) = operation.data {
                     self.outter_sender = Some(s);
                 }
             },
             OperationType::MemAttachInner => {
-                if let MsgDataObj::Inners((is, smh)) = op.data {
+                if let MsgDataObj::Inners((is, smh)) = operation.data {
                     for (id, s) in is {
                         self.inner_senders.as_mut().unwrap().insert(id,s);
                     }
@@ -166,12 +166,12 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
                 assert_eq!(self.inner_senders.as_ref().unwrap().len(), self.sub_mem_handels.as_ref().unwrap().len(),)
             },
             OperationType::RuleAdd => {
-                if let MsgDataObj::Rule(r) = op.data {
+                if let MsgDataObj::Rule(r) = operation.data {
                     self.add_rule(r);
                 }
             },
             OperationType::RuleAddBatch => {
-                if let MsgDataObj::Rules(mut rules) = op.data {
+                if let MsgDataObj::Rules(mut rules) = operation.data {
                     while let Some(r) = rules.pop() {
                         self.add_rule(r);
                     }
@@ -179,7 +179,7 @@ where T:  Clone + Eq + Hash + Display + 'static,V:  Clone + 'static {
             },
             OperationType::Stop => {
                 if !self.op_queue.is_empty() {
-                    self.op_queue.push(op);
+                    self.op_queue.push(operation);
                     let last_pos = self.op_queue.len() - 1;
                     self.op_queue.swap(0, last_pos); // 延迟Stop
                     return true;

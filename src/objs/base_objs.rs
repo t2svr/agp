@@ -2,7 +2,7 @@ use std::{fmt::Display, hash::Hash, ops::Add};
 
 use meme_derive::IObj;
 
-use crate::{core::{DataObj, IObj, IRule, Needs, ObjCat, ObjType, Offer, Operation, PObj}, helpers::needs_map_builder};
+use crate::{core::{DataObj, IObj, IRule, Needs, ObjCat, ObjType, Offer, Operation, Operations, PObj}, helpers::needs_map_builder};
 
 #[derive(IObj)]
 #[id_type(T)]
@@ -49,8 +49,8 @@ impl<T: Clone, V: Clone> ExampleRule<T, V> {
             needed_types: needs_map_builder()
                 .randomly()
                 //.sequentially()
-                .reads()
-                //.takes()
+                //.reads()
+                .takes()
                 .all::<ExampleObj<T, V>>()
                 //.some::<ExampleObj<T, V>>(10)
                 //.the(T::new(24601))
@@ -82,19 +82,19 @@ V: Clone + Send + Add<V, Output = V>
         let mut new_obj: Vec<PObj<Self::IdType, Self::ValueType>> = Vec::new();
 
         // Todo: 在这里实现规则的逻辑 返回产生的操作
-        if self.some_private_data <= 10 {
-            self.some_private_data += 1;
-        } else {
-            return None;
-        }
+        let mut res: Operations<T, V> = Vec::new();
         while let Some(mut o) = offered_data.general[0].pop() {
             if let Some(top) = o.data.last() {
                 o.data.push((*top).clone() + (*top).clone());
             }
             new_obj.push(Box::new(ExampleObj{ id: o.id, some_exposed_data: o.data }));
         }
-       
-        Some(vec![Operation::obj_add_batch(env.id, new_obj)])  
+        res.push(Operation::obj_add_batch(env.id.clone(), new_obj));
+        self.some_private_data += 1;
+        if self.some_private_data >= 10 {
+            res.push(Operation::stop(env.id))
+        }
+        Some(res)
     }
 
     fn about_rule(&self) -> &'static str {

@@ -115,6 +115,14 @@ where T: Clone + Eq + Hash + Display, V: Clone
             data: MsgDataObj::Objs(objs)
         }
     }
+
+    pub fn stop(target_id: T) -> Self{
+        Self {
+            op_type: OperationType::Stop,
+            target_id,
+            data: MsgDataObj::None
+        }
+    }
 }
 
 impl<ValueType: Clone,  IdType: Clone + Eq + Hash + Display> Operation<IdType, ValueType> {

@@ -1,4 +1,4 @@
-use std::{thread, time::Duration};
+use std::thread;
 
 use meme::{core::*, mems::base_mem::BaseMem, objs::base_objs::{ExampleObj, ExampleRule}};
 use uuid::Uuid;
@@ -33,8 +33,6 @@ pub fn basics() {
     assert!(s.send(Operation { op_type: OperationType::ObjAdd, target_id: m_id, data: MsgDataObj::Obj(obj_a) }).is_ok());
     assert!(s.send(Operation { op_type: OperationType::ObjAdd, target_id: m_id, data: MsgDataObj::Obj(obj_b) }).is_ok());
     assert!(s.send(Operation { op_type: OperationType::RuleAdd, target_id: m_id, data: MsgDataObj::Rule(rule_a) }).is_ok());
-    thread::sleep(Duration::from_secs(10));
-    assert!(s.send(Operation { op_type: OperationType::Stop, target_id: Default::default(), data: MsgDataObj::None }).is_ok());
 
     let res = handel.join();
     assert!(res.is_ok());
@@ -44,6 +42,7 @@ pub fn basics() {
     assert_eq!(true, m_res.unwrap());
 
     let pr_obj = m_new.get_pref_objs();
+    assert_eq!(pr_obj.len(), 2);
     assert!(pr_obj.values().all(|o| {
         o.get_ref_data_vec().contains(&666) &&
         o.get_ref_data_vec().contains(&222) &&
