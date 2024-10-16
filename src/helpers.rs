@@ -1,128 +1,182 @@
-use std::any::TypeId;
-use std::collections::HashMap;
+use std::fmt::Display;
+use std::hash::Hash;
 
 use krnl::buffer::{Buffer, BufferBase, BufferRepr};
+use krnl::scalar::Scalar;
 use log::Level;
 use log::log;
 
-use crate::core::GeneralNeed;
-use crate::core::Needs;
+use crate::core::{ICondition, IObj, IRuleEffect, ObjCrateFn, ObjType, ObjUpdateFn, OperationEffect, TaggedPresence, TaggedPresences, TypeGroup, UntaggedPresence, UntaggedPresences};
 use crate::gpu;
-use crate::lib_info;
+use crate::lib_info::log_target;
 
-pub struct NeedsBuilder<IdType>{
-    general: Option<Vec<GeneralNeed>>,
-    specific: Option<Vec<(IdType, bool)>>,
-    is_random: bool,
-    is_take: bool
+pub struct EffectBuilder<E> {
+    effs: Option<Vec<E>>,
 }
 
-impl<T> Default for NeedsBuilder<T> {
+impl<E> EffectBuilder<E> {
+    pub fn new() -> Self {
+        Self { effs: None }
+    }
+}
+
+impl<E> Default for EffectBuilder<E> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T> NeedsBuilder<T> {
+impl<T, U> EffectBuilder<OperationEffect<T, U>>
+where T: Send + Sync, U: Send + Sync {
+
+    pub fn add_op(mut self, op: OperationEffect<T, U>) -> Self {
+        let e = self.effs.get_or_insert(Vec::new());
+        e.push(op);
+        self
+    }
+
+    pub fn crate_obj(mut self, f: ObjCrateFn<T, U>) -> Self {
+        let e = self.effs.get_or_insert(Vec::new());
+        e.push(OperationEffect::CreateObj(f));
+        self
+    }
+
+    pub fn remove_obj(mut self, t: T) -> Self {
+        let e = self.effs.get_or_insert(Vec::new());
+        e.push(OperationEffect::RemoveObj(t));
+        self
+    }
+
+    pub fn update_obj(mut self, f: ObjUpdateFn<T, U>) -> Self {
+        let e = self.effs.get_or_insert(Vec::new());
+        e.push(OperationEffect::UpdateObj(f));
+        self
+    }
+
+    pub fn build<RE: IRuleEffect<Effect = OperationEffect<T, U>>>(&mut self) -> RE {
+        RE::from_builder(self.effs.take())
+    }
+}
+
+
+// todo: tagged 和 untagged 的对象中，如果存在同类对象的处理方法 -ignored
+// todo: tagged 对象的 amount 无法预测，需要即时判断 -ignored
+pub struct ConditionBuilder<T = u32, U = u32>
+where T: Clone + Hash + Eq + Display, U: Scalar{
+    of_type: Option<UntaggedPresences<U>>,
+    of_tag: Option<TaggedPresences<T>>
+}
+
+impl<T: Clone + Hash + Eq + Display, U: Scalar> Default for ConditionBuilder<T, U> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: Clone + Hash + Eq + Display, U: Scalar> ConditionBuilder<T, U> {
     pub fn new() -> Self {
         Self {
-            general: Some(Vec::new()),
-            specific: Some(Vec::new()),
-            is_random: false,
-            is_take: false
+            of_type: None,
+            of_tag: None
         }
     }
     
-    /// 选取count个类型为ObjT的对象
-    pub fn some<ObjT: 'static>(mut self, count: usize) -> NeedsBuilder<T> {
-        if let Some(ref mut n) = self.general {
-           n.push(GeneralNeed { 
-                tid: TypeId::of::<ObjT>(),
-                count: Some(count), 
-                is_take: self.is_take, 
-                is_random: self.is_random 
-            });
-        }
+    pub fn some_untagged<Obj: IObj + 'static>(mut self, amount: U) -> Self {
+        let oty = self.of_type.get_or_insert(Vec::new());
+        oty.push(UntaggedPresence {
+            ty: ObjType::new::<Obj>(TypeGroup::default()),
+            amount,
+        });
         self
     }
 
-    /// 选取所有类型为ObjT的对象
-    pub fn all<ObjT: 'static>(mut self) -> NeedsBuilder<T> {
-        if let Some(ref mut n) = self.general {
-            n.push(GeneralNeed { 
-                 tid: TypeId::of::<ObjT>(),
-                 count: None, 
-                 is_take: self.is_take, 
-                 is_random: self.is_random 
-             });
-         }
+    /// 选取指定tag的对象
+    pub fn the_tagged(mut self, tag: T) -> Self {
+        let otg = self.of_tag.get_or_insert(Vec::new());
+        otg.push(TaggedPresence::OfTag(tag));
         self
     }
 
-    /// 选取指定id的对象
-    pub fn the(mut self, id: T) -> NeedsBuilder<T> {
-        if let Some(ref mut g) = self.specific {
-            g.push((id, self.is_take));
-        }
+    pub fn rand_tagged<Obj: IObj + 'static>(mut self, count: usize) -> Self {
+        let otg = self.of_tag.get_or_insert(Vec::new());
+        otg.push(TaggedPresence::RandTags((ObjType::new::<Obj>(TypeGroup::default()), count)));
         self
     }
 
-    /// 规则每次运行 获取的对象都随机排列 这会有额外的运算开销 复杂度取决于shuffle的算法
-    pub fn randomly(mut self) -> NeedsBuilder<T> {
-        self.is_random = true;
-        self
-    }
-
-    ///  规则每次运行 获取的对象都按照默认的顺序 默认顺序取决于Hasher
-    pub fn sequentially(mut self) -> NeedsBuilder<T> {
-        self.is_random = false;
-        self
-    }
-
-    /// 之后选取的对象会被释放
-    pub fn takes(mut self) -> NeedsBuilder<T> {
-        self.is_take = true;
-        self
-    }
-
-    /// 之后选取的对象会被保留
-    pub fn reads(mut self) -> NeedsBuilder<T> {
-        self.is_take = false;
-        self
-    }
-
-    pub fn build(&mut self) -> Needs<T>  {
-        let mut pos_map = HashMap::<TypeId, usize>::new();
-        let general =  self.general.take().unwrap();
-        let specific =  self.specific.take().unwrap();
-        for (i ,tid) in general.iter().map(|n| n.tid).enumerate() {
-            pos_map.insert(tid, i);
-        }
-        Needs { 
-            pos_map, 
-            general_count: general.len(), specific_count: specific.len(),
-            general, specific
-        }
+    pub fn build<C: ICondition<T, U>>(&mut self) -> C {
+        C::from_builder(self.of_type.take(), self.of_tag.take())
     }
     
 }
 
-/// 获取对象需求构造器
+/// 获取条件构造器
 #[inline]
-pub fn needs_map_builder<T>() -> NeedsBuilder<T> {
-    NeedsBuilder::new()
+pub fn condition_builder<T: Clone + Hash + Eq + Display, U: Scalar>() -> ConditionBuilder<T, U> {
+    ConditionBuilder::new()
 }
 
-/// 创建GPU缓冲区
 #[inline]
-pub fn make_gpu_buffer<T: krnl::scalar::Scalar>(data: Vec<T>) -> Option<BufferBase<BufferRepr<T>>> {
+pub fn condition_empty<T: Clone + Hash + Eq + Display, U: Scalar, C: ICondition<T, U>>() -> C {
+    C::from_builder(None, None)
+}
+
+/// 获取影响构造器
+#[inline]
+pub fn effect_builder<E>() -> EffectBuilder<E> {
+    EffectBuilder::new()
+}
+
+#[inline]
+pub fn effect_empty<RE: IRuleEffect>() -> RE {
+    RE::from_builder(None)
+}
+
+/// 创建GPU缓冲区(来自数据)
+pub fn gpu_buffer_from<T: krnl::scalar::Scalar>(data: Vec<T>) -> Option<BufferBase<BufferRepr<T>>> {
+    let size = data.len();
     let res = Buffer::from(data).into_device(gpu::DEVICE.clone());
     match res {
         Ok(buf) => {
+            log!(
+                target: log_target::GPU::Info.into(), 
+                Level::Info, 
+                "Created gpu buffer of size {}",
+                buf.len()
+            );
             Some(buf)
         },
         Err(e) => {
-            log!(target: lib_info::LOG_TARGET_GPU, Level::Error, "Failed to create gpu buffer: {:?}", e);
+            log!(
+                target: log_target::GPU::Exceptions.into(), 
+                Level::Error, 
+                "Failed to create gpu buffer for data of size {} : {:?}", 
+                size, e
+            );
+            None
+        },
+    }
+}
+
+/// 创建GPU缓冲区(全零)
+pub fn gpu_buffer_zeros<T: krnl::scalar::Scalar>(size: usize) -> Option<BufferBase<BufferRepr<T>>> {
+    let res = Buffer::zeros(gpu::DEVICE.clone(), size);
+    match res {
+        Ok(buf) => {
+            log!(
+                target: log_target::GPU::Info.into(), 
+                Level::Info, 
+                "Created gpu buffer zeros of size {}",
+                buf.len()
+            );
+            Some(buf)
+        },
+        Err(e) => {
+            log!(
+                target: log_target::GPU::Exceptions.into(), 
+                Level::Error, 
+                "Failed to create gpu buffer zeros for data of size {} : {:?}", 
+                size, e
+            );
             None
         },
     }
@@ -131,8 +185,8 @@ pub fn make_gpu_buffer<T: krnl::scalar::Scalar>(data: Vec<T>) -> Option<BufferBa
 /// 批量移除Vec元素(就地unsafe)
 #[inline]
 #[allow(unused_assignments)]
-pub fn vec_batch_remove_inplace<T>(v: &mut Vec<T>, indexes: &Vec<usize>) {
-    let mut indexes_sorted = indexes.clone();
+pub fn vec_batch_remove_inplace<T>(v: &mut Vec<T>, indexes: &[usize]) {
+    let mut indexes_sorted = indexes.to_owned();
     indexes_sorted.sort_unstable();
     let (mut cp_start_pos, mut cp_end_pos, mut cp_to_pos) = (0usize, 0usize, 0usize);
     let mut i = 0;
@@ -162,6 +216,7 @@ pub fn vec_batch_remove_inplace<T>(v: &mut Vec<T>, indexes: &Vec<usize>) {
     }
     v.truncate(v.len() - indexes.len());
 }
+
 /* 
 /// 批量移除Vec元素(迭代器复制)
 pub fn vec_batch_remove_iter<T: Clone>(v: &Vec<T>, indexes: &Vec<usize>) -> Vec<T> {

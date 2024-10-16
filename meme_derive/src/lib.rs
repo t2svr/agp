@@ -1,99 +1,193 @@
 extern crate proc_macro;
 
-use core::panic;
+use std::borrow::Borrow;
 
-use proc_macro::TokenStream;
-use quote::{quote, ToTokens, format_ident};
-use syn;
-use syn::DeriveInput;
+use quote::{quote, ToTokens};
 
-#[proc_macro_derive(IObj, attributes(id, data, obj_type, data_type, id_type))]
-pub fn iobj_macro_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
+use syn::{parse::Parse, AngleBracketedGenericArguments, DeriveInput, Ident};
 
-    let name = ast.ident;
-    let mut id: Option<syn::Ident> = None; 
-    let mut data: Option<syn::Ident> = None; 
-    let mut id_t_s = String::new();
-    let mut data_t_s = String::new();
-    let mut obj_t_s = String::new();
-
-    for root_a in ast.attrs {
-        if root_a.path.is_ident("id_type") {
-            id_t_s = root_a.tokens.to_string();
-            id_t_s.remove(0);
-            id_t_s.pop();
-        } else if root_a.path.is_ident("data_type") {
-            data_t_s = root_a.tokens.to_string();
-            data_t_s.remove(0);
-            data_t_s.pop();
-        } else if root_a.path.is_ident("obj_type") {
-            obj_t_s = root_a.tokens.to_string();
-            obj_t_s.remove(0);
-            obj_t_s.pop();
-        }
+struct GeneType {
+    pub _ident: Ident,
+    pub gene: AngleBracketedGenericArguments
+}
+impl Parse for GeneType {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Ok(GeneType {
+            _ident: input.parse()?,
+            gene: input.parse()?
+        })
     }
+}
 
-    let obj_t_val = if obj_t_s.is_empty() {
-        quote! {ObjCat::Normal}
+#[proc_macro_derive(IObj, attributes(tag, amount, obj_type))]
+pub fn iobj_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let ast: DeriveInput = syn::parse(input).unwrap();
+    let name = &ast.ident;
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+
+    let obj_type_attr = ast.attrs.iter().find(|a| {
+       a.path().is_ident("obj_type")
+    }).map_or(quote!{ meme::core::TypeGroup::Normal }, |a| {
+        let list = a.meta.require_list().expect("obj_type属性不完整").tokens.to_token_stream();
+        quote! { #list }
+    });
+
+    let tag_field = if let syn::Data::Struct(s) = ast.data.borrow() {
+        if let syn::Fields::Named(fields) = &s.fields {
+            fields.named.iter().find(|f| { 
+                f.attrs.iter().any(|a| a.path().is_ident("tag"))
+            }).cloned()
+        } else {
+            None
+        }
     } else {
-        let val = syn::parse_str::<syn::Expr>(obj_t_s.as_str()).unwrap();
-        quote! {#val}
-    };
+        None
+    }.expect("缺少tag属性");
 
-    let gener = ast.generics.clone();
-    let where_clu = if let Some(w) = gener.where_clause.clone() {
-        let where_ts = w.to_token_stream();
-        quote! { #where_ts }
-    } else { 
-        quote! {}
-    };
-
-    if let syn::Data::Struct(s) = ast.data {
+    let tag = tag_field.ident.expect("tag属性不完整");
+    let tag_type = tag_field.ty;
+    
+    let amount_field = if let syn::Data::Struct(s) = ast.data {
         if let syn::Fields::Named(fields) = s.fields {
-            for f in fields.named {
-                if let Some(attr) = f.attrs.get(0) {
-                    if attr.path.is_ident("id") {
-                        id = f.ident.clone();
-                    } else if attr.path.is_ident("data") {
-                        data = f.ident.clone();
-                    }
+            fields.named.iter().find(|f| { 
+                f.attrs.iter().any(|a| a.path().is_ident("amount"))
+            }).cloned()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let (amount, amount_type) = if let Some(a) = amount_field {
+        let member = a.ident.expect("amount属性不完整");
+        let ty = a.ty;
+        let ret = quote! { self.#member };
+        let unit_t = quote! { #ty };
+        (ret, unit_t)
+    } else {
+        let ret = quote! { 1u32 };
+        let unit_t = quote! { u32 };
+        (ret, unit_t)
+    };
+
+    (quote! {
+        impl #impl_generics meme::core::IObj for #name #ty_generics #where_clause {
+            type Tag = #tag_type;
+            type Unit = #amount_type;
+            fn obj_tag(&self) -> Self::Tag { self.#tag.clone() }
+            fn obj_amount(&self) -> Self::Unit { #amount }
+            fn obj_type(&self) -> meme::core::ObjType {meme::core::ObjType::new::<Self>(#obj_type_attr)}
+            fn as_any(&self) -> &dyn std::any::Any { self }
+            fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+        }
+    }).into()
+}
+
+#[proc_macro_derive(IRule, attributes(condition, effect, obj_tag_type))]
+pub fn irule_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let ast: DeriveInput = syn::parse(input).unwrap();
+    let name = &ast.ident;
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+
+    let cond_field = if let syn::Data::Struct(s) = ast.data.borrow() {
+        if let syn::Fields::Named(fields) = &s.fields {
+            fields.named.iter().find(|f| { 
+                f.attrs.iter().any(|a| a.path().is_ident("condition"))
+            }).cloned()
+        } else {
+            None
+        }
+    } else {
+        None
+    }.expect("缺少condition属性");
+
+    let cond = cond_field.ident.expect("condition属性不完整");
+    let cond_type = cond_field.ty;
+
+    let cond_ty_indent = syn::parse2::<GeneType>(cond_type.to_token_stream());
+
+    let obj_tag_type = ast.attrs.iter().find(|a| {
+        a.path().is_ident("obj_tag_type")
+    }).map(|a| {
+        let list = a.meta.require_list().expect("obj_tag_type属性不完整").tokens.to_token_stream();
+        quote! { #list }
+    }).unwrap_or({
+        cond_ty_indent.map(|c| {
+            let t = &c.gene.args[0];
+            quote! { #t }
+        } ).unwrap_or(quote! { u32 })
+    });
+
+    let eff_field = if let syn::Data::Struct(s) = ast.data.borrow() {
+        if let syn::Fields::Named(fields) = &s.fields {
+            fields.named.iter().find(|f| { 
+                f.attrs.iter().any(|a| a.path().is_ident("effect"))
+            }).cloned()
+        } else {
+            None
+        }
+    } else {
+        None
+    }.expect("缺少effect属性");
+
+    let eff = eff_field.ident.expect("effect属性不完整");
+    let eff_type = eff_field.ty;
+
+    (quote! {
+        impl #impl_generics meme::core::IRule for #name #ty_generics #where_clause {
+            type ObjTag = #obj_tag_type;
+            type Condition = #cond_type;
+            type Effect = #eff_type;
+            fn condition(&self) -> &Self::Condition { &self.#cond }
+            fn effect(&self) -> &Self::Effect { &self.#eff }
+        }
+    }).into()
+}
+
+
+#[proc_macro_derive(IntoSRStr)]
+pub fn into_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let ast: DeriveInput = syn::parse(input).unwrap();
+    let name = &ast.ident;
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+
+    let arms = parse_arms(&ast).expect("无法解析");
+
+    (quote! {
+        impl #impl_generics Into<&'static str> for #name #ty_generics #where_clause {
+            fn into(self: Self) -> &'static str {
+                match self {
+                    #(#arms)*
                 }
             }
-        } else {
-            panic!()
         }
+    }).into()
+}
+
+fn parse_arms(ast: &DeriveInput) -> syn::Result<Vec<proc_macro2::TokenStream>> {
+    let name = &ast.ident;
+    let mut arms = Vec::new();
+
+    let variants = if let syn::Data::Enum(e) = &ast.data {
+        Some(&e.variants)
     } else {
-        panic!()
+        None
+    }.expect("不是枚举");
+
+    for variant in variants {
+        let ident = &variant.ident;
+       
+        let output = format!("{}::{}", name, ident);
+     
+        let params = match variant.fields {
+            syn::Fields::Unit => quote! {},
+            syn::Fields::Unnamed(..) => quote! { (..) },
+            syn::Fields::Named(..) => quote! { {..} },
+        };
+
+        arms.push(quote! { #name::#ident #params => #output, });
     }
 
-    let (get_copy_data_vec_body, get_ref_data_vec_body) = if data.is_none() {
-        (quote!{ unimplemented!() }, quote!{ unimplemented!() })
-    } else {
-        let data_ident = data.unwrap();
-        (
-            quote! {
-            self.#data_ident.clone()
-            },
-            quote! {
-                &self.#data_ident
-            }
-        )
-    };
-
-    let id_ident = id.unwrap();
-    let id_t_ident = format_ident!("{id_t_s}");
-    let data_t_ident = format_ident!("{data_t_s}");
-    let gen = quote! {
-        impl #gener IObj for #name #gener 
-        #where_clu {
-            type IdType = #id_t_ident;
-            type ValueType = #data_t_ident;
-            fn get_id(self: &Self) -> Self::IdType {self.#id_ident.clone()}
-            fn get_obj_type(self: &Self) -> ObjType {ObjType::new::<Self>(#obj_t_val)}
-            fn get_copy_data_vec(self: &Self) -> Vec<Self::ValueType> { #get_copy_data_vec_body }
-            fn get_ref_data_vec(self: &Self) -> &Vec<Self::ValueType> { #get_ref_data_vec_body }
-        }
-    };
-    gen.into()
+    Ok(arms)
 }
