@@ -95,6 +95,8 @@ pub trait ICondition<Tag: Clone + Hash + Eq, Unit: Scalar>: Clone {
     fn tagged(&self) -> &Option<TaggedPresences<Tag>>;
 }
 
+
+// todo: 在GPU上并行化规则
 pub trait IRule: IObj {
     type ObjTag: Clone + Hash + Eq;
     type Condition: ICondition<Self::ObjTag, Self::Unit>;
@@ -114,11 +116,11 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
     /// 默认的检查方式可以分离出能并行应用的规则子集（不保证最大）  
     /// 如果不需要提前知道无冲突并行子集（即不需要冲突避免）  
     /// 可以使用 [`IRuleStat::check_on_tagged_fast`]
-    fn check_on_tagged<OS>(&mut self, os: &OS) -> ExecutableRules<OT> 
+    fn check_on<OS>(&mut self, os: &OS) -> ExecutableRules<OT> 
     where OS: ITaggedStore<OT, PObj<OT, U>> + IObjStat<U> {
 
         let mut released_amount = vec![U::zero(); os.amount().len()];
-        let mut used_tgs = AHashMap::new(); 
+        let mut used_tgs: AHashMap<OT, (usize, bool)> = AHashMap::new(); 
         let mut rand_tags_for: AHashMap<usize, Vec<Vec<OT>>> = AHashMap::new();
         let mut rng = rand::thread_rng();
 
@@ -180,8 +182,11 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                     let mut tag_confli = false;
                     if c.tagged().is_some() {
                         for t in choosed {
-                            if let Some((_, conflicted)) = used_tgs.get_mut(&t) {
-                                *conflicted = true;
+                            if let Some((first_pos, conflicted)) = used_tgs.get_mut(&t) {
+                                if *conflicted == false {
+                                    *conflicted = true;
+                                    conflict_executable.push(first_pos.clone());
+                                }
                                 tag_confli = true;
                             } else {
                                 used_tgs.insert(t, (i, false));
@@ -223,15 +228,9 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                 }
                 None
             }).fold(AHashSet::new(), |mut acc, e| { acc.insert(e); acc});
-
-        // 首个tag冲突的由于判断时不知道后续规则的情况，故没有被从executable中排除，在此处单独进行
-        let conflict_tgs_ind = used_tgs.values()
-            .filter_map(|(i, conflicted)| if *conflicted { conflict_executable.push(*i); Some(i) } else { None })
-            .fold(AHashSet::new(), |mut acc, e| { acc.insert(e); acc});
-
+       
         let parallel_executable = executable
             .iter()
-            .filter(|i| !conflict_tgs_ind.contains(i) )
             .map(|i| (i, &self.conditions()[*i]))
             .filter_map(|(i, c)| {
                 if let Some(uts) = c.untagged() {
@@ -251,69 +250,93 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
             rand_tags_for
         }
     }
-    /// 动态执行 `rule_indexes` 中的规则，如果 `rule_indexes` 为 [`None`] 则尝试执行所有规则
-    fn dynamic_execute<OS, F>(&mut self, os: &mut OS, rule_indexes: Option<&Vec<usize>>, handler: F)
-    where OS: ITaggedStore<OT, PObj<OT, U>> + IObjStat<U>, F: Fn(&mut OS, Option<&E>, &(Vec<OT>, Vec<Vec<OT>>)) {
-        let mut rng = rand::thread_rng();
-        let mut all_ind;
-        let ite = if let Some(ri) = rule_indexes {
-            ri
-        } else {
-            all_ind = (0..self.conditions().len()).collect::<Vec<_>>();
-            all_ind.shuffle(&mut rng);
-            &all_ind
-        }.iter().filter_map(|i| self.condition_of(*i));
+    
+    fn check_on_tagged<OS>(&mut self, os: &OS) -> ExecutableRules<OT> 
+    where OS: ITaggedStore<OT, PObj<OT, U>> + IObjStat<U> {
 
-        ite.enumerate()
-        .for_each(|(i, c)| {
-            let mut choosed: AHashSet<OT> = AHashSet::new();
-            let mut rand = Vec::new();
-            let mut set = Vec::new();
-            if let Some(uts) = c.untagged() {
-                for u in uts {
-                    if  os.amount_of(&u.ty).is_none_or(|a| a < u.amount ) {
-                        return;
+        let mut used_tgs: AHashMap<OT, (usize, bool)> = AHashMap::new(); 
+        let mut rand_tags_for: AHashMap<usize, Vec<Vec<OT>>> = AHashMap::new();
+        let mut rng = rand::thread_rng();
+
+        let mut conflict_executable = Vec::<usize>::new();
+
+        let parallel_executable = self.conditions() 
+            .iter()
+            .enumerate()
+            .filter_map(|(i, c)| {
+                let mut tag_satisfied = true;
+                let mut choosed: AHashSet<OT> = AHashSet::new();
+                let mut choosed_each = Vec::new();
+              
+                if let Some(tgs) = c.tagged() {
+                    for t in tgs {
+                        match t {
+                            TaggedPresence::OfTag(t) => {
+                                if !os.contains(t) {
+                                    tag_satisfied = false;
+                                    break;
+                                }
+                                choosed.insert(t.clone());
+                            },
+                            TaggedPresence::RandTags((ty, c)) => {
+                                let choosed_new = os.iter()// todo: 从没重复的tag中选择 -ok
+                                    .filter_map(|o| {
+                                        if o.obj_type() == *ty && !choosed.contains(&o.obj_tag()) {
+                                            Some(o.obj_tag())
+                                        } else {
+                                            None
+                                        }
+                                    }).choose_multiple(&mut rng, *c);
+                                if choosed_new.len() != *c {
+                                    tag_satisfied = false;
+                                    break;
+                                }
+                                for t in choosed_new.iter() {
+                                    choosed.insert(t.clone());
+                                }
+                                choosed_each.push(choosed_new);
+                            }
+                        };
                     }
                 }
-            }
-            if let Some(tgs) = c.tagged() {
-                for t in tgs {
-                    match t {
-                        TaggedPresence::OfTag(t) => {
-                            if !os.contains(t) {
-                                return;
+                
+                if tag_satisfied {
+                    let mut tag_confli = false;
+                    if c.tagged().is_some() {
+                        for t in choosed {
+                            if let Some((first_pos, conflicted)) = used_tgs.get_mut(&t) {
+                                if *conflicted == false {
+                                    *conflicted = true;
+                                    conflict_executable.push(first_pos.clone());
+                                }
+                                tag_confli = true;
+                            } else {
+                                used_tgs.insert(t, (i, false));
                             }
-                            set.push(t.clone());
-                            choosed.insert(t.clone());
-                        },
-                        TaggedPresence::RandTags((ty, c)) => {
-                            let choosed_new = os.iter()// todo: 如果已提供 不选择
-                                .filter_map(|o| {
-                                    if o.obj_type() == *ty && !choosed.contains(&o.obj_tag()) {
-                                        Some(o.obj_tag())
-                                    } else {
-                                        None
-                                    }
-                                }).choose_multiple(&mut rng, *c);
-
-                            if choosed_new.len() != *c {
-                                return;
-                            }
-                            for t in choosed_new.iter() {
-                                choosed.insert(t.clone());
-                            }
-                            rand.push(choosed_new);
                         }
-                    };
+                    }
+                    if !choosed_each.is_empty() {
+                        rand_tags_for.insert(i, choosed_each);
+                    }
+                    if tag_confli {
+                        conflict_executable.push(i);
+                        None
+                    } else {
+                        Some(i)
+                    }
+                } else {
+                    None
                 }
-            }
-            let rq = (set, rand);
-            //执行
-            handler(os, self.effect_of(i), &rq);
-        });
+            }).collect::<Vec<_>>();
+
+        ExecutableRules {
+            parallel_executable: if parallel_executable.is_empty() { None } else { Some(parallel_executable) },
+            conflict_executable: if conflict_executable.is_empty() { None } else { Some(conflict_executable) },
+            rand_tags_for
+        }
     }
 
-    fn check_on_tagged_fast<OS>(&mut self, os: &OS) -> ExecutableRules<OT> 
+    fn check_on_simple<OS>(&mut self, os: &OS) -> ExecutableRules<OT> 
     where OS: ITaggedStore<OT, PObj<OT, U>> + IObjStat<U> {
 
         let mut rand_tags_for: AHashMap<usize, Vec<Vec<OT>>> = AHashMap::new();
@@ -460,6 +483,67 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
             conflict_executable: if conflict_executable.is_empty() { None } else { Some(conflict_executable) },
             rand_tags_for: Default::default()
         }
+    }
+    /// 动态执行 `rule_indexes` 中的规则，如果 `rule_indexes` 为 [`None`] 则尝试执行所有规则
+    fn dynamic_execute<OS, F>(&mut self, os: &mut OS, rule_indexes: Option<&Vec<usize>>, handler: F)
+    where OS: ITaggedStore<OT, PObj<OT, U>> + IObjStat<U>, F: Fn(&mut OS, Option<&E>, &(Vec<OT>, Vec<Vec<OT>>)) {
+        let mut rng = rand::thread_rng();
+        let mut all_ind;
+        let ite = if let Some(ri) = rule_indexes {
+            ri
+        } else {
+            all_ind = (0..self.conditions().len()).collect::<Vec<_>>();
+            all_ind.shuffle(&mut rng);
+            &all_ind
+        }.iter().filter_map(|i| self.condition_of(*i));
+
+        ite.enumerate()
+        .for_each(|(i, c)| {
+            let mut choosed: AHashSet<OT> = AHashSet::new();
+            let mut rand = Vec::new();
+            let mut set = Vec::new();
+            if let Some(uts) = c.untagged() {
+                for u in uts {
+                    if  os.amount_of(&u.ty).is_none_or(|a| a < u.amount ) {
+                        return;
+                    }
+                }
+            }
+            if let Some(tgs) = c.tagged() {
+                for t in tgs {
+                    match t {
+                        TaggedPresence::OfTag(t) => {
+                            if !os.contains(t) {
+                                return;
+                            }
+                            set.push(t.clone());
+                            choosed.insert(t.clone());
+                        },
+                        TaggedPresence::RandTags((ty, c)) => {
+                            let choosed_new = os.iter()// todo: 如果已提供 不选择
+                                .filter_map(|o| {
+                                    if o.obj_type() == *ty && !choosed.contains(&o.obj_tag()) {
+                                        Some(o.obj_tag())
+                                    } else {
+                                        None
+                                    }
+                                }).choose_multiple(&mut rng, *c);
+
+                            if choosed_new.len() != *c {
+                                return;
+                            }
+                            for t in choosed_new.iter() {
+                                choosed.insert(t.clone());
+                            }
+                            rand.push(choosed_new);
+                        }
+                    };
+                }
+            }
+            let rq = (set, rand);
+            //执行
+            handler(os, self.effect_of(i), &rq);
+        });
     }
 }
 

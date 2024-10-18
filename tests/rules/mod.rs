@@ -3,7 +3,6 @@ use meme_derive::{IObj, IRule};
 
 use crate::objs::{TestObjA, TestObjB};
 
-
 #[derive(IObj, IRule)]
 struct TestRuleA {
     #[tag]
@@ -94,4 +93,6 @@ pub fn basic_rule_store_test() {
     assert!(rst.remove(&1).is_some_and(|r| r.obj_tag() == 1));
     let check_res_new = rst.check_on_tagged(&ost);
     assert!(check_res_new.conflict_executable.is_none() && check_res_new.parallel_executable.is_none());
+
+    // todo: 测试规则的执行
 }
