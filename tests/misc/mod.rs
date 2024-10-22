@@ -1,4 +1,7 @@
+use std::borrow::Borrow;
+
 use meme::core::IndexMap;
+use rand::{thread_rng, Rng};
 
 #[test]
 pub fn index_map_test() {
@@ -24,3 +27,28 @@ pub fn index_map_test() {
     assert_eq!(m.index_of(&1), Some(0));
 }
 
+#[test]
+pub fn choose_iter_test() {
+    let mut rng = thread_rng();
+    let branch = rng.gen_bool(0.5);
+    let data = vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+    let rule_indexes = if branch { Some(vec![0, 1, 3, 4, 5, 2]) } else { None };
+    let all_ind;
+    let mut ite = if let Some(ri) = rule_indexes.borrow() {
+        ri
+    } else {
+        all_ind = (0..data.len()).collect::<Vec<_>>();
+        &all_ind
+    }.iter().filter_map(|i| data.get(*i));
+    assert_eq!(ite.next(), Some(&0.0));
+    if branch { 
+        assert_eq!(ite.next(), Some(&0.1));
+        assert_eq!(ite.next(), Some(&0.3));
+        assert_eq!(ite.next(), Some(&0.4));
+    } else {
+        assert_eq!(ite.next(), Some(&0.1));
+        assert_eq!(ite.next(), Some(&0.2));
+        assert_eq!(ite.next(), Some(&0.3));
+    }
+  
+}

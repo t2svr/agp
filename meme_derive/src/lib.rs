@@ -27,7 +27,7 @@ pub fn iobj_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 
     let obj_type_attr = ast.attrs.iter().find(|a| {
        a.path().is_ident("obj_type")
-    }).map_or(quote!{ meme::core::TypeGroup::Normal }, |a| {
+    }).map_or(quote!{ meme::core::DEFAULT_GROUP }, |a| {
         let list = a.meta.require_list().expect("obj_type属性不完整").tokens.to_token_stream();
         quote! { #list }
     });
@@ -75,16 +75,16 @@ pub fn iobj_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStr
         impl #impl_generics meme::core::IObj for #name #ty_generics #where_clause {
             type Tag = #tag_type;
             type Unit = #amount_type;
-            fn obj_tag(&self) -> Self::Tag { self.#tag.clone() }
+            fn obj_tag(&self) -> &Self::Tag { &self.#tag }
             fn obj_amount(&self) -> Self::Unit { #amount }
-            fn obj_type(&self) -> meme::core::ObjType {meme::core::ObjType::new::<Self>(#obj_type_attr)}
+            fn obj_type(&self) -> meme::core::ObjType { meme::core::ObjType::new::<Self>(&#obj_type_attr) }
             fn as_any(&self) -> &dyn std::any::Any { self }
             fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
         }
     }).into()
 }
 
-#[proc_macro_derive(IRule, attributes(condition, effect, obj_tag_type))]
+#[proc_macro_derive(IRule, attributes(condition, effect, obj_tag_type, obj_unit_type))]
 pub fn irule_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ast: DeriveInput = syn::parse(input).unwrap();
     let name = &ast.ident;
@@ -113,9 +113,27 @@ pub fn irule_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenSt
         let list = a.meta.require_list().expect("obj_tag_type属性不完整").tokens.to_token_stream();
         quote! { #list }
     }).unwrap_or({
+        cond_ty_indent.as_ref().map(|c| {
+            if let Some(t) = c.gene.args.get(0) {
+                quote! { #t }
+            } else {
+                quote! { u32 }
+            }
+        } ).unwrap_or(quote! { u32 })
+    });
+
+    let obj_unit_type = ast.attrs.iter().find(|a| {
+        a.path().is_ident("obj_unit_type")
+    }).map(|a| {
+        let list = a.meta.require_list().expect("obj_unit_type属性不完整").tokens.to_token_stream();
+        quote! { #list }
+    }).unwrap_or({
         cond_ty_indent.map(|c| {
-            let t = &c.gene.args[0];
-            quote! { #t }
+            if let Some(t) = c.gene.args.get(1) {
+                quote! { #t }
+            } else {
+                quote! { u32 }
+            }
         } ).unwrap_or(quote! { u32 })
     });
 
@@ -137,6 +155,7 @@ pub fn irule_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenSt
     (quote! {
         impl #impl_generics meme::core::IRule for #name #ty_generics #where_clause {
             type ObjTag = #obj_tag_type;
+            type ObjUnit = #obj_unit_type;
             type Condition = #cond_type;
             type Effect = #eff_type;
             fn condition(&self) -> &Self::Condition { &self.#cond }

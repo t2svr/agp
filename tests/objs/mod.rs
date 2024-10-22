@@ -6,7 +6,7 @@ use meme::objs::BasicObjStore;
 use meme_derive::IObj;
 
 
-#[derive(IObj)]
+#[derive(IObj, Debug)]
 #[obj_type(TypeGroup::Normal)]
 pub struct TestObjA {
     #[tag]
@@ -29,8 +29,7 @@ impl TestObjA {
     }
 }
 
-#[derive(IObj)]
-#[obj_type(TypeGroup::Normal)]
+#[derive(IObj, Debug)]
 pub struct TestObjB {
     #[tag]
     tag: i32
@@ -54,12 +53,12 @@ pub fn basic_obj_store_test() {
     assert!(st.add_or_update(pa2.tag, pa2).is_none());
     assert!(st.add_or_update(pb1.tag, pb1).is_none());
     assert!(st.add_or_update(pb2.tag, pb2).is_none());
-    assert_eq!(st.add_or_update(pbr.tag, pbr).unwrap().obj_tag(), 3);
+    assert_eq!(st.add_or_update(pbr.tag, pbr).unwrap().obj_tag(), &3);
     assert!(st.contains(&2));
     assert!(st.contains(&3));
     assert!(!st.contains(&6));
     assert!(st.get(&5).is_none());
-    assert_eq!(st.get(&1).unwrap().obj_tag(), 1);
+    assert_eq!(st.get(&1).unwrap().obj_tag(), &1);
     assert_eq!(st.get(&3).unwrap().obj_amount(), 1);
 
     let mp = st.get_mut(&2).unwrap();

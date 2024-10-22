@@ -1,106 +1,169 @@
-// use std::{fmt::Display, hash::Hash, ops::Add};
+use std::{fmt::Debug, hash::Hash};
 
-// use meme_derive::{IM2Obj, IObj};
+use crossbeam_channel::{unbounded, Receiver, Sender};
+use krnl::scalar::Scalar;
+use meme_derive::IObj;
+use crate::{self as meme, core::{ArcObj, TypeGroup}, errors::MemError};
 
-// use crate::{core::{DataObj, IObj, IM2Obj, IM2Rule, Needs, ObjCat, ObjType, Offer, M2Operation, M2Operations, PM2Obj}, helpers::needs_map_builder};
+pub type ObjChannel<T, U = u32, OT = T, OU = U> = Channel<T, U, ArcObj<OT, OU>>;
 
-pub struct ComObj {
+#[derive(IObj, Debug)]
+#[obj_type(TypeGroup::Com)]
+pub struct Channel<T, U = u32, DT = T> 
+where 
+T: Eq + Hash + Clone + Debug + 'static, 
+U: Scalar,
+DT: Debug + 'static {
+    #[tag]
+    tag: T,
 
-} 
+    #[amount]
+    amount: U,
 
-// #[derive(IObj, IM2Obj)]
-// //#[obj_type(ObjCat::Normal)] //默认类型为ObjCat::Normal
-// #[data_type(V)]
-// pub struct ExampleObj<T, V>
-// where T: Clone + 'static, V: Clone + 'static {
-//     #[id]
-//     id: T,
-//     #[data]
-//     some_exposed_data: Vec<V>
-// }
+    r: Receiver<DT>,
+    s: Sender<DT>,
+}
 
-// impl<T: Clone, V: Clone> ExampleObj<T, V> {
-//     pub fn new(id: T) -> Self {
-//         Self{ id, some_exposed_data: Vec::new() }
-//     }
+impl<T, U, DT> Channel<T, U, DT> 
+where 
+T: Eq + Hash + Clone + Debug + 'static, 
+U: Scalar,
+DT: Debug + 'static {
+    pub fn new_pair(tag_a: T, tag_b: T) -> (Self, Self) {
+        let (s1, r1) = unbounded();
+        let (s2, r2) = unbounded();
+        (
+            Self {
+                tag: tag_a,
+                amount: U::one(),
+                r: r1,
+                s: s2,
+            },
+            Self {
+                tag: tag_b,
+                amount: U::one(),
+                r: r2,
+                s: s1,
+            }
+        )
+    }
 
-//     pub fn data_push_val(&mut self, val: V) {
-//         self.some_exposed_data.push(val);
-//     }
-// }
+    pub fn new_sr_pair(tag_s: T, tag_r: T) -> (SChannel<T, U, DT>, RChannel<T, U, DT>) {
+        let (s, r) = unbounded();
+        (
+            SChannel {
+                tag: tag_s,
+                amount: U::one(),
+                s
+            },
+            RChannel {
+                tag: tag_r,
+                amount: U::one(),
+                r
+            }
+        )
+    }
 
-// #[derive(IObj, IM2Obj)]
-// #[obj_type(ObjCat::Rule)]
-// #[data_type(V)]
-// pub struct ExampleRule<T, V>
-// where T: Clone + 'static, V: Clone + 'static {
-//     #[id]
-//     id: T,
-//     #[data]
-//     some_exposed_data: Vec<V>,
-//     needed_types: Needs<T>,
-//     // 自定义的字段
-//     iterations: u32,
-//     iterations_stop: u32
-// }
+    pub fn new_clone(&self, tag: T) -> Self {
+        Self { tag, amount: U::one(), r: self.r.clone(), s: self.s.clone() }
+    }
 
-// impl<T: Clone, V: Clone> ExampleRule<T, V> {
-//     pub fn new(id: T, iterations_stop: u32) -> Self {
-//         Self{ 
-//             id, iterations_stop, iterations: 0,
-//             some_exposed_data: Vec::new(), 
-//             needed_types: needs_map_builder()
-//                 .randomly()
-//                 //.sequentially()
-//                 //.reads()
-//                 .takes()
-//                 .all::<ExampleObj<T, V>>()
-//                 //.some::<ExampleObj<T, V>>(10)
-//                 //.the(T::new(24601))
-//                 .build()
-//         }
-//     }
-// }
+    pub fn send(&self, d: DT) -> Result<(), MemError> {
+        Ok(self.s.send(d)?)
+    }
 
-// impl<T, V> IM2Rule for ExampleRule<T, V>
-// where
-// T: Clone + Hash + Display + Eq + Send + Default,
-// V: Clone + Send + Add<V, Output = V> + From<i32>
-// {
-//     fn obj_needs(&self) -> &crate::core::Needs<T> {
-//         &self.needed_types
-//     }
+    pub fn receive(&self) -> Result<DT, MemError>  {
+        Ok(self.r.recv()?)
+    }
 
-//     /// 解释：  
-//     /// env: 当前规则所在环境的数据对象  
-//     /// offered_data: 根据 fn obj_needs(&self) 中返回的对象需求信息获取到的数据对象  
-//     /// 返回：  
-//     ///     - None 表示该规则不被触发或者没有对其他对象的影响  
-//     ///     - Some(x) x为产生的一系列影响，例如新增对象，移除对象，破坏膜等等   
-//     /// 
-//     /// 这个例子使用了非必要的复杂操作如泛化，u32 到 i32 转换等，以体现通用性，实际使用时应尽量避免
-//      fn run(&mut self, env: DataObj<Self::IdType, Self::ValueType>, mut offered_data: Offer<Self::IdType, Self::ValueType>)
-//       -> Option<Vec<M2Operation<Self::IdType, Self::ValueType>>> {
-//         let mut new_obj: Vec<PM2Obj<Self::IdType, Self::ValueType>> = Vec::new();
+    pub fn try_receive(&self) -> Result<DT, MemError>  {
+        Ok(self.r.try_recv()?)
+    }
+}
 
-//         // Todo: 在这里实现规则的逻辑 返回产生的操作
-//         let mut res: M2Operations<T, V> = Vec::new();
-//         while let Some(mut o) = offered_data.general[0].pop() {
-//             if let Some(top) = o.data.last() {
-//                 if self.iterations >= 10 {
-//                     o.data.push((*top).clone());
-//                 } else {
-//                     o.data.push((*top).clone() + (*top).clone());
-//                 }
-//             }
-//             new_obj.push(Box::new(ExampleObj{ id: o.id, some_exposed_data: o.data }));
-//         }
-//         res.push(M2Operation::obj_add_batch(env.id.clone(), new_obj));
-//         self.iterations += 1;
-//         if self.iterations >= self.iterations_stop {
-//             self.some_exposed_data.push((self.iterations as i32).into());
-//             res.push(M2Operation::stop(env.id))
-//         }
-//         Some(res)
-//     }
-// }
+
+
+#[derive(IObj, Debug)]
+#[obj_type(TypeGroup::Com)]
+pub struct SChannel<T, U = u32, DT = T> 
+where 
+T: Eq + Hash + Clone + Debug + 'static, 
+U: Scalar,
+DT: Debug + 'static {
+    #[tag]
+    tag: T,
+    #[amount]
+    amount: U,
+
+    s: Sender<DT>,
+}
+
+impl<T, U, DT> SChannel<T, U, DT> 
+where 
+T: Eq + Hash + Clone + Debug + 'static, 
+U: Scalar,
+DT: Debug + 'static {
+    pub fn send(&self, d: DT) -> Result<(), MemError> {
+        Ok(self.s.send(d)?)
+    }
+}
+
+#[derive(IObj, Debug)]
+#[obj_type(TypeGroup::Com)]
+pub struct RChannel<T, U = u32, DT = T> 
+where 
+T: Eq + Hash + Clone + Debug + 'static, 
+U: Scalar,
+DT: Debug + 'static {
+    #[tag]
+    tag: T,
+    #[amount]
+    amount: U,
+
+    r: Receiver<DT>,
+}
+
+impl<T, U, DT> RChannel<T, U, DT> 
+where 
+T: Eq + Hash + Clone + Debug + 'static, 
+U: Scalar,
+DT: Debug + 'static {
+    pub fn receive(&self) -> Result<DT, MemError>  {
+        Ok(self.r.recv()?)
+    }
+}
+
+#[derive(Debug)]
+pub struct SendWrapper<OT, OU, CT = OT> {
+    pub obj: ArcObj<OT, OU>,
+    pub channel_t: CT
+}
+
+#[derive(IObj, Debug)]
+#[obj_type(TypeGroup::Com)]
+pub struct SendMsg<T, U = u32, OU = U, OT = T, CT = T>
+where 
+T: Eq + Hash + Clone + Debug + 'static, 
+U: Scalar,
+OU: Scalar,
+OT: Debug + 'static, 
+CT: Debug + 'static {
+    #[tag]
+    tag: T,
+    #[amount]
+    amount: U,
+
+    pub send_msgs: Vec<SendWrapper<OT, OU, CT>>
+}
+
+impl<T, U, OU, OT, CT> SendMsg<T, U, OU, OT, CT>
+where 
+T: Eq + Hash + Clone + Debug + 'static, 
+U: Scalar,
+OU: Scalar,
+OT: Debug + 'static, 
+CT: Debug + 'static {
+    pub fn new(tag: T, send_msgs: Vec<SendWrapper<OT, OU, CT>>) -> Self {
+        Self { tag, amount: U::one(), send_msgs }
+    }
+}

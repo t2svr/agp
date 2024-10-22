@@ -7,18 +7,13 @@ use crate::core::{IObjStat, ITaggedStore, IndexMap, PObj};
 
 pub mod com;
 // todo: 分类储存obj
+
+#[derive(Debug, Default)]
 pub struct BasicObjStore<T = u32, U = u32>
 where T: Clone + Hash + Eq, U: Scalar {
     instances: AHashMap<T, PObj<T, U>>,
     amount: IndexMap<TypeId, U>,
     modified: bool
-}
-
-impl<T, U> Default for BasicObjStore<T, U>
-where T: Clone + Hash + Eq, U: Scalar {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl<T, U> BasicObjStore<T, U> 
@@ -78,6 +73,10 @@ where T: Clone + Hash + Eq, U: Scalar {
     
     fn iter<'a>(&'a self) -> impl Iterator<Item = &'a PObj<T, U>> where PObj<T, U>: 'a {
         self.instances.values()
+    }
+    
+    fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut PObj<T, U>> where PObj<T, U>: 'a {
+        self.instances.values_mut()
     }
     
 }

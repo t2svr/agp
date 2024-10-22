@@ -1,15 +1,17 @@
-use std::fmt::Display;
 use std::hash::Hash;
+use std::sync::atomic::{self, Ordering};
 
+use idgenerator::{IdGeneratorOptions, IdInstance};
 use krnl::buffer::{Buffer, BufferBase, BufferRepr};
 use krnl::scalar::Scalar;
 use log::Level;
 use log::log;
 
-use crate::core::{ICondition, IObj, IRuleEffect, ObjCrateFn, ObjType, ObjUpdateFn, OperationEffect, TaggedPresence, TaggedPresences, TypeGroup, UntaggedPresence, UntaggedPresences};
+use crate::core::{ICondition, IObj, IRuleEffect, ObjCrateFn, ObjRemoveFn, ObjType, ObjsCrateFn, ObjsRemoveFn, OperationEffect, TaggedPresence, TaggedPresences, UntaggedPresence, UntaggedPresences};
 use crate::gpu;
 use crate::lib_info::log_target;
 
+#[derive(Debug)]
 pub struct EffectBuilder<E> {
     effs: Option<Vec<E>>,
 }
@@ -35,21 +37,33 @@ where T: Send + Sync, U: Send + Sync {
         self
     }
 
+    pub fn crate_objs(mut self, f: ObjsCrateFn<T, U>) -> Self {
+        let e = self.effs.get_or_insert(Vec::new());
+        e.push(OperationEffect::CreateObjs(f));
+        self
+    }
+
     pub fn crate_obj(mut self, f: ObjCrateFn<T, U>) -> Self {
         let e = self.effs.get_or_insert(Vec::new());
         e.push(OperationEffect::CreateObj(f));
         self
     }
 
-    pub fn remove_obj(mut self, t: T) -> Self {
+    pub fn remove_obj(mut self, f: ObjRemoveFn<T, U>) -> Self {
         let e = self.effs.get_or_insert(Vec::new());
-        e.push(OperationEffect::RemoveObj(t));
+        e.push(OperationEffect::RemoveObj(f));
         self
     }
 
-    pub fn update_obj(mut self, f: ObjUpdateFn<T, U>) -> Self {
+    pub fn remove_objs(mut self, f: ObjsRemoveFn<T, U>) -> Self {
         let e = self.effs.get_or_insert(Vec::new());
-        e.push(OperationEffect::UpdateObj(f));
+        e.push(OperationEffect::RemoveObjs(f));
+        self
+    }
+
+    pub fn stop_mem(mut self) -> Self {
+        let e = self.effs.get_or_insert(Vec::new());
+        e.push(OperationEffect::Stop);
         self
     }
 
@@ -61,19 +75,20 @@ where T: Send + Sync, U: Send + Sync {
 
 // todo: tagged 和 untagged 的对象中，如果存在同类对象的处理方法 -ignored
 // todo: tagged 对象的 amount 无法预测，需要即时判断 -ignored
+#[derive(Debug)]
 pub struct ConditionBuilder<T = u32, U = u32>
-where T: Clone + Hash + Eq + Display, U: Scalar{
+where T: Clone + Hash + Eq, U: Scalar{
     of_type: Option<UntaggedPresences<U>>,
     of_tag: Option<TaggedPresences<T>>
 }
 
-impl<T: Clone + Hash + Eq + Display, U: Scalar> Default for ConditionBuilder<T, U> {
+impl<T: Clone + Hash + Eq, U: Scalar> Default for ConditionBuilder<T, U> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Clone + Hash + Eq + Display, U: Scalar> ConditionBuilder<T, U> {
+impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
     pub fn new() -> Self {
         Self {
             of_type: None,
@@ -81,10 +96,10 @@ impl<T: Clone + Hash + Eq + Display, U: Scalar> ConditionBuilder<T, U> {
         }
     }
     
-    pub fn some_untagged<Obj: IObj + 'static>(mut self, amount: U) -> Self {
+    pub fn some_untagged<Obj: IObj + ?Sized + 'static>(mut self, amount: U) -> Self {
         let oty = self.of_type.get_or_insert(Vec::new());
         oty.push(UntaggedPresence {
-            ty: ObjType::new::<Obj>(TypeGroup::default()),
+            ty: ObjType::new::<Obj>(&crate::core::DEFAULT_GROUP),
             amount,
         });
         self
@@ -97,9 +112,38 @@ impl<T: Clone + Hash + Eq + Display, U: Scalar> ConditionBuilder<T, U> {
         self
     }
 
+     /// 选取指定tag的对象
+     pub fn some_tagged(mut self, mut tags: Vec<T>) -> Self {
+        let otg = self.of_tag.get_or_insert(Vec::new());
+        while let Some(t) = tags.pop() {
+            otg.push(TaggedPresence::OfTag(t));
+        }
+        self
+    }
+
+    /// 随机选择tagged对象，随机选择会有开销（`O(n)`，`n` 为对象数量），如果选择失败的情况较多，   
+    /// 可以使用[`ConditionBuilder::some_untagged`]来要求该类对象数量满足  
+    /// 因为untagged会被优先检查，失败时提前返回，避免选择的开销，例如：  
+    /// 
+    /// 
+    /// ```
+    /// use meme_derive::IObj;
+    /// use meme::rules::BasicCondition;
+    /// 
+    /// #[derive(IObj, Debug)]
+    /// struct TestObj {
+    ///     #[tag]
+    ///     tag: i32
+    /// }
+    /// 
+    /// let cond = meme::helpers::condition_builder()
+    ///            .rand_tagged::<TestObj>(3)
+    ///            .some_untagged::<TestObj>(3)
+    ///            .build::<BasicCondition<i32>>();
+    /// ```
     pub fn rand_tagged<Obj: IObj + 'static>(mut self, count: usize) -> Self {
         let otg = self.of_tag.get_or_insert(Vec::new());
-        otg.push(TaggedPresence::RandTags((ObjType::new::<Obj>(TypeGroup::default()), count)));
+        otg.push(TaggedPresence::RandTags((ObjType::new::<Obj>(&crate::core::DEFAULT_GROUP), count)));
         self
     }
 
@@ -111,12 +155,14 @@ impl<T: Clone + Hash + Eq + Display, U: Scalar> ConditionBuilder<T, U> {
 
 /// 获取条件构造器
 #[inline]
-pub fn condition_builder<T: Clone + Hash + Eq + Display, U: Scalar>() -> ConditionBuilder<T, U> {
+pub fn condition_builder<T, U>() -> ConditionBuilder<T, U> 
+where T: Clone + Hash + Eq, U: Scalar {
     ConditionBuilder::new()
 }
 
 #[inline]
-pub fn condition_empty<T: Clone + Hash + Eq + Display, U: Scalar, C: ICondition<T, U>>() -> C {
+pub fn condition_empty<T, U, C>() -> C 
+where T: Clone + Hash + Eq, U: Scalar, C: ICondition<T, U> {
     C::from_builder(None, None)
 }
 
@@ -130,6 +176,49 @@ pub fn effect_builder<E>() -> EffectBuilder<E> {
 pub fn effect_empty<RE: IRuleEffect>() -> RE {
     RE::from_builder(None)
 }
+
+
+// todo: 全局tag生成器 -ok
+
+static COUNTER_USIZE: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
+static COUNTER_U32: atomic::AtomicU32 = atomic::AtomicU32::new(0);
+static COUNTER_I32: atomic::AtomicI32 = atomic::AtomicI32::new(0);
+
+pub static ID_GEN: once_cell::sync::Lazy<IdGen> = once_cell::sync::Lazy::new(|| {
+    let gen = IdGen {};
+    gen.init_id_gen();
+    gen
+});
+
+/// 注意，只能用于同一程序内的ID生成
+pub struct IdGen {
+
+}
+
+impl IdGen {
+    pub fn init_id_gen(&self) {
+        let _ = IdInstance::init(IdGeneratorOptions::new().worker_id_bit_len(8).seq_bit_len(3).worker_id(0));
+    }
+    
+    /// 唯一ID生成，只用于i64，较慢，随机均匀
+    pub fn next_i64_id(&self) -> i64 {
+        IdInstance::next_id()
+    }
+
+    /// 唯一ID生成，用于usize，快，顺序
+    pub fn next_usize_id() -> usize { 
+        COUNTER_USIZE.fetch_add(1, Ordering::Relaxed) 
+    }
+    /// 唯一ID生成，用于u32，快，顺序
+    pub fn next_u32_id() -> u32 { 
+        COUNTER_U32.fetch_add(1, Ordering::Relaxed) 
+    }
+    /// 唯一ID生成，用于i32，快，顺序
+    pub fn next_i32_id() -> i32 { 
+        COUNTER_I32.fetch_add(1, Ordering::Relaxed) 
+    }
+}
+
 
 /// 创建GPU缓冲区(来自数据)
 pub fn gpu_buffer_from<T: krnl::scalar::Scalar>(data: Vec<T>) -> Option<BufferBase<BufferRepr<T>>> {

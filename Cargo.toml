@@ -1,7 +1,7 @@
 [package]
 name = "meme"
-authors = ["Junshuang Hu <hjshuang@hnu.edu.cn>"]
-version = "0.2.0"
+authors = ["Junshuang Hu <croteco@outlook.com>"]
+version = "0.2.1"
 edition = "2021"
 license = "unset"
 description = "Membrane computing system emulator"
@@ -12,17 +12,18 @@ keywords = ["Membrane computing", "P system", "Biocomputing"]
 categories = ["libraries"]
 
 [dependencies]
-crossbeam-channel = "0.5"
+crossbeam-channel = "0.5"   #用于跨线程通信
 meme_derive = { path = "./meme_derive" }
 log = "0.4"
-once_cell = "1.20"
-krnl = "0.1"
+once_cell = "1.20"          #用于单例
+krnl = "0.1"                #用于GPU加速
 rand = "0.8"
-ahash = "0.8"
-rayon = "1.10"
+ahash = "0.8"               #高效hashmap
+rayon = "1.10"              #用于CPU加速
+idgenerator = "2.0"         #用于局域ID生成
 
-[dependencies.uuid]
-version = "1.10"
+[dependencies.uuid]         #为分布式系统对象交换提供全局ID预留
+version = "1.11"
 features = [
     "v4",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG

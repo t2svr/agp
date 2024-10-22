@@ -13,6 +13,7 @@ pub mod com;
 //     pub action_obj_gen: Option<>
 // }
 
+#[derive(Debug)]
 pub struct BasicEffect<T = u32, U = u32>
 where T: Send + Sync, U: Send + Sync {
     effects: Option<Vec<OperationEffect<T, U>>>,
@@ -38,7 +39,7 @@ where T: Send + Sync + Clone, U: Send + Sync + Clone {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct BasicCondition<T = u32, U = u32>
 where T: Clone + Hash + Eq, U: Scalar {
     untagged_cond: Option<UntaggedPresences<U>>,
@@ -63,41 +64,30 @@ where T: Clone + Hash + Eq, U: Scalar {
         &self.tagged_cond
     }
 
-
-
 }
 
-pub struct BasicRuleStore<T, OT = T, U = u32, E = BasicEffect<OT, U>, C = BasicCondition<OT, U>>
+#[derive(Debug, Default)]
+pub struct BasicRuleStore<T, OT = T, U = u32, OU = U, E = BasicEffect<OT, U>, C = BasicCondition<OT, U>>
 where 
 T: Hash + Eq + Clone + Send + Sync, 
 OT: Eq + Hash + Clone , 
 U: Scalar, 
+OU: Scalar,
 E: IRuleEffect, 
-C: ICondition<OT, U> {
-    inner: IndexMap<T, PRule<T, OT, U, E, C>>,
+C: ICondition<OT, OU> {
+    inner: IndexMap<T, PRule<T, OT, U, OU, E, C>>,
     stat: Vec<C>,
-    amount: AHashMap<TypeId ,U>
+    amount: AHashMap<TypeId, OU>
 }
 
-impl<T, OT, U, E, C> Default for BasicRuleStore<T, OT, U, E, C>
+impl<T, OT, U, OU, E, C> BasicRuleStore<T, OT, U, OU, E, C>
 where 
 T: Hash + Eq + Clone + Send + Sync, 
 OT: Eq + Hash + Clone, 
 U: Scalar, 
+OU: Scalar,
 E: IRuleEffect, 
-C: ICondition<OT, U> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T, OT, U, E, C> BasicRuleStore<T, OT, U, E, C>
-where 
-T: Hash + Eq + Clone + Send + Sync, 
-OT: Eq + Hash + Clone, 
-U: Scalar, 
-E: IRuleEffect, 
-C: ICondition<OT, U> {
+C: ICondition<OT, OU> {
     pub fn new() -> Self {
         Self {
             inner: IndexMap::new(),
@@ -106,32 +96,33 @@ C: ICondition<OT, U> {
         }
     }
 
-    pub fn rules(&self) -> &Vec<PRule<T, OT, U, E, C>> {
+    pub fn rules(&self) -> &Vec<PRule<T, OT, U, OU, E, C>> {
         self.inner.vals()
     }
 }
 
-impl<T, OT, U, E, C> ITaggedStore<T, PRule<T, OT, U, E, C>> for BasicRuleStore<T, OT, U, E, C>
+impl<T, OT, U, OU, E, C> ITaggedStore<T, PRule<T, OT, U, OU, E, C>> for BasicRuleStore<T, OT, U, OU, E, C>
 where 
 T: Hash + Eq + Clone + Send + Sync, 
 OT: Eq + Hash + Clone, 
 U: Scalar, 
+OU: Scalar,
 E: IRuleEffect, 
-C: ICondition<OT, U> {
+C: ICondition<OT, OU> {
 
     fn contains(&self, t: &T) -> bool {
         self.inner.containes(t)
     }
 
-    fn get(&self, t: &T) -> Option<&PRule<T, OT, U, E, C>> {
+    fn get(&self, t: &T) -> Option<&PRule<T, OT, U, OU, E, C>> {
         self.inner.get(t)
     }
 
-    fn get_mut(&mut self, t: &T) -> Option<&mut PRule<T, OT, U, E, C>> {
+    fn get_mut(&mut self, t: &T) -> Option<&mut PRule<T, OT, U, OU, E, C>> {
         self.inner.get_mut(t)
     }
 
-    fn remove(&mut self, t: &T) -> Option<PRule<T, OT, U, E, C>> {
+    fn remove(&mut self, t: &T) -> Option<PRule<T, OT, U, OU, E, C>> {
         let old_ind = self.index_of(t);
         if let Some(old) = self.inner.remove(t) {
             let old_c = self.stat.remove(old_ind.unwrap());
@@ -151,7 +142,7 @@ C: ICondition<OT, U> {
         }
     }
 
-    fn add_or_update(&mut self, t: T, v: PRule<T, OT, U, E, C>) -> Option<PRule<T, OT, U, E, C>> {
+    fn add_or_update(&mut self, t: T, v: PRule<T, OT, U, OU, E, C>) -> Option<PRule<T, OT, U, OU, E, C>> {
         let cond = v.condition().clone();
         if let Some(o_req) = cond.untagged() {
             for o in o_req {
@@ -182,19 +173,24 @@ C: ICondition<OT, U> {
         }
     }
     
-    fn iter<'a>(&'a self) -> impl Iterator<Item = &'a PRule<T, OT, U, E, C>> where PRule<T, OT, U, E, C>: 'a {
+    fn iter<'a>(&'a self) -> impl Iterator<Item = &'a PRule<T, OT, U, OU, E, C>> where PRule<T, OT, U, OU, E, C>: 'a {
         self.inner.vals().iter()
+    }
+    
+    fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut PRule<T, OT, U, OU, E, C>> where PRule<T, OT, U, OU, E, C>: 'a {
+        self.inner.vals_mut().iter_mut()
     }
   
 }
 
-impl<T, OT, U, E, C> IRuleStat<T, OT, U, E, C> for BasicRuleStore<T, OT, U, E, C>
+impl<T, OT, U, OU, E, C> IRuleStat<T, OT, OU, E, C> for BasicRuleStore<T, OT, U, OU, E, C>
 where 
 T: Hash + Eq + Clone + Send + Sync, 
 OT: Eq + Hash + Clone, 
 U: Scalar, 
+OU: Scalar,
 E: IRuleEffect, 
-C: ICondition<OT, U> {
+C: ICondition<OT, OU> {
     fn index_of(&self, t: &T) -> Option<usize> {
         self.inner.index_of(t)
     }
@@ -203,7 +199,7 @@ C: ICondition<OT, U> {
         &self.stat
     }
     
-    fn req_of_types(&self) -> &AHashMap<TypeId, U> {
+    fn req_of_types(&self) -> &AHashMap<TypeId, OU> {
         &self.amount
     }
     

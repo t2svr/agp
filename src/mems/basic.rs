@@ -1,32 +1,47 @@
+use crate::rules::BasicCondition;
+use crate::rules::BasicEffect;
 use crate as meme;
 use crate::core::*;
 use crate::meme_derive::*;
 use crate::objs::BasicObjStore;
 use crate::rules::BasicRuleStore;
 
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use krnl::scalar::Scalar;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use rayon::prelude::*;
 
-#[derive(IObj)]
-pub struct BasicMem<T>
-where T: Clone + Hash + Eq + Send + Sync + 'static {
+pub type PBasicRule<RT, OT, U> = PRule<RT, OT, U, U, BasicEffect<OT, U>, BasicCondition<OT, U>>;
+
+#[derive(IObj, Debug)]
+pub struct BasicMem<T, OT = T, RT = T, U = u32>
+where 
+T: Clone + Hash + Eq + Debug + 'static, 
+OT: Clone + Hash + Eq + Send + Sync + Debug + 'static, 
+RT: Clone + Hash + Eq + Send + Sync + Debug + 'static,
+U: Scalar {
     #[tag]
     tag: T,
 
     ready: bool,
 
-    objs: BasicObjStore<T>,
-    rules: BasicRuleStore<T>,
+    objs: BasicObjStore<OT, U>,
+    rules: BasicRuleStore<RT, OT, U>,
 
 }
 
-impl<T> BasicMem<T>
-where T: Clone + Hash + Eq + Send + Sync + 'static {
+impl<T, OT, RT, U> BasicMem<T, OT, RT, U>
+where 
+T: Clone + Hash + Eq + Debug + 'static, 
+OT: Clone + Hash + Eq + Send + Sync + Debug + 'static, 
+RT: Clone + Hash + Eq + Send + Sync + Debug + 'static,
+U: Scalar
+{
     pub fn new(tag: T) -> Self {
         Self {
             tag,
@@ -36,14 +51,51 @@ where T: Clone + Hash + Eq + Send + Sync + 'static {
         }
     }
 
-    pub fn init(&mut self) {
-
+    pub fn init(&mut self, mut objs: Vec<PObj<OT, U>>, mut rules: Vec<PBasicRule<RT, OT, U>>) {
+        while let Some(o) = objs.pop() {
+            self.objs.add_or_update(o.obj_tag().clone(), o);
+        }
+        while let Some(r) = rules.pop() {
+            self.rules.add_or_update(r.obj_tag().clone(), r);
+        }
         self.ready = true;
+    }
+
+    pub fn effect_proc(
+        es: &Vec<OperationEffect<OT, U>>, req: RequestedObj<'_, OT, U>, stop_mux: &Arc<Mutex<bool>>,
+        out_to_add: &mut Vec<PObj<OT, U>>, out_to_remove: &mut Vec<OT>) {
+        for e in es {
+            match e {
+                OperationEffect::CreateObjs(f) => {
+                    let mut new_o = f(&req);
+                    while let Some(o) = new_o.pop() {
+                        out_to_add.push(o);
+                    }
+                },
+                OperationEffect::RemoveObjs(f) => {
+                    let mut v = f(&req);
+                    while let Some(t) = v.pop() {
+                        out_to_remove.push(t);
+                    }
+                },
+                OperationEffect::CreateObj(f) => {
+                    out_to_add.push(f(&req));
+                },
+                OperationEffect::Stop => {
+                    *stop_mux.lock().unwrap() = true;
+                }
+                _ => {}
+            }
+        }
     }
 }
 
-impl<T> IMem for BasicMem<T>
-where T: Clone + Hash + Eq + Send + Sync + 'static {
+impl<T, OT, RT, U> IMem for BasicMem<T, OT, RT, U>
+where 
+T: Clone + Hash + Eq + Debug + 'static, 
+OT: Clone + Hash + Eq + Send + Sync + Debug + 'static, 
+RT: Clone + Hash + Eq + Send + Sync + Debug + 'static,
+U: Scalar  {
     
     fn ready(&self) -> bool {
         self.ready
@@ -52,7 +104,7 @@ where T: Clone + Hash + Eq + Send + Sync + 'static {
     fn run(&mut self) -> EmuStatus {
         let stop = Arc::new(Mutex::new(false));
         loop {
-            let executable = self.rules.check_on_tagged(&self.objs);
+            let executable = self.rules.check_on_simple(&self.objs);
             if executable.conflict_executable.is_none()
             && executable.parallel_executable.is_none() { //膜内规则无法执行，故只能依靠外部改变更改膜内对象或规则，因此为了节省计算资源暂停该膜
                 return EmuStatus::Pause;
@@ -66,7 +118,7 @@ where T: Clone + Hash + Eq + Send + Sync + 'static {
                         self.rules.effect_of(*i).and_then(|e| e.effects().as_ref()).map(|es| (i, es))
                     })
                     .map(|(i, es)| {
-                        let (mut to_add, mut to_remove) = (Vec::new(), Vec::new());
+                        let (mut to_add_tmp, mut to_remove_tmp) = (Vec::new(), Vec::new());
                         let req_set = if let Some(tgs) = self.rules.condition_of(*i).and_then(|c| c.tagged().as_ref()) {
                             let mut res = Vec::new();
                             for tp in tgs {
@@ -88,27 +140,8 @@ where T: Clone + Hash + Eq + Send + Sync + 'static {
                         );
                        
                         let req = RequestedObj { set: req_set, rand: req_rand };
-                        for e in es {
-                            match e {
-                                OperationEffect::CreateObj(f) => {
-                                    let mut new_o = f(&req);
-                                    while let Some(o) = new_o.pop() {
-                                        to_add.push(o);
-                                    }
-                                },
-                                OperationEffect::RemoveObj(t) => {
-                                    to_remove.push(t.clone());
-                                },
-                                OperationEffect::UpdateObj(f) => {
-                                    to_add.push(f(&req));
-                                },
-                                OperationEffect::Stop => {
-                                    *stop.lock().unwrap() = true;
-                                }
-                                _ => {}
-                            }
-                        }
-                        (to_add, to_remove)
+                        Self::effect_proc(es, req, &stop, &mut to_add_tmp, &mut to_remove_tmp);
+                        (to_add_tmp, to_remove_tmp)
                     })
                     .reduce(|| (Vec::new(), Vec::new()), |mut a, mut b| {
                         a.0.append(&mut b.0);
@@ -120,63 +153,45 @@ where T: Clone + Hash + Eq + Send + Sync + 'static {
                     self.objs.remove(&t);
                 }
                 while let Some(o) = to_add.pop() {
-                    self.objs.add_or_update(o.obj_tag(), o);
+                    self.objs.add_or_update(o.obj_tag().clone(), o);
                 }
-                
             }
 
             //这些规则单独可以应用，但是同时应用可能会冲突
-            if let Some(mut ce) = executable.conflict_executable { // todo: 动态应用 -ok
+            if let Some(mut ce) = executable.conflict_executable { // todo: 动态应用 -ok 
                 let mut rng = thread_rng();
                 ce.shuffle(&mut rng);
-                self.rules.dynamic_execute(&mut self.objs, Some(&ce),
-                |os, e, req| {
-                    let r = RequestedObj {
-                        set: if req.0.is_empty() { None } else {
-                            Some(req.0.iter().filter_map(|t| os.get(t)).collect::<Vec<_>>()) 
-                        },
-                        rand: if req.1.is_empty() { None } else {
-                            Some(
-                                req.1.iter().map(|v| 
-                                    v.iter().filter_map(|t| 
-                                        os.get(t))
-                                    .collect::<Vec<_>>()
-                                ).collect::<Vec<_>>()
-                            )
-                        },
-                    };
-
-                    let (mut to_add, mut to_remove) = (Vec::new(), Vec::new());
-                    if let Some(es) = e.and_then(|e| e.effects().as_ref()) {
-                        for e in es {
-                            match e {
-                                OperationEffect::CreateObj(f) => {
-                                    let mut new_o = f(&r);
-                                    while let Some(o) = new_o.pop() {
-                                        to_add.push(o);
-                                    }
+                let (mut to_add_tmp, mut to_remove_tmp) = (Vec::new(), Vec::new());
+                self.rules.dynamic_execute(
+                    &mut self.objs, Some(&ce),
+                    |os, e, req| {
+                       
+                        if let Some(es) = e.and_then(|e| e.effects().as_ref()) {
+                            let r = RequestedObj {
+                                set: if req.0.is_empty() { None } else {
+                                    Some(
+                                        req.0.iter().map(|t| os.get(t).unwrap()).collect::<Vec<_>>()
+                                    )
                                 },
-                                OperationEffect::RemoveObj(t) => {
-                                    to_remove.push(t.clone());
+                                rand: if req.1.is_empty() { None } else {
+                                    Some(
+                                        req.1.iter().map(|v| {
+                                            v.iter().map(|t| os.get(t).unwrap()).collect::<Vec<_>>()
+                                        }).collect::<Vec<_>>()
+                                    )
                                 },
-                                OperationEffect::UpdateObj(f) => {
-                                    to_add.push(f(&r));
-                                },
-                                OperationEffect::Stop => {
-                                    *stop.lock().unwrap() = true;
-                                }
-                                _ => {}
+                            };
+                        
+                            Self::effect_proc(es, r, &stop, &mut to_add_tmp, &mut to_remove_tmp);
+                            while let Some(t) = to_remove_tmp.pop() {
+                                os.remove(&t);
+                            }
+                            while let Some(o) = to_add_tmp.pop() {
+                                os.add_or_update(o.obj_tag().clone(), o);
                             }
                         }
                     }
-
-                    while let Some(t) = to_remove.pop() {
-                        os.remove(&t);
-                    }
-                    while let Some(o) = to_add.pop() {
-                        os.add_or_update(o.obj_tag(), o);
-                    }
-                });
+                );
             }
 
             if stop.is_poisoned()
