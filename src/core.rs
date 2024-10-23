@@ -564,7 +564,7 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
 }
 
 pub trait IMem: IObj { 
-    fn start(&mut self) -> Result<EmuStatus, MemError> {
+    fn start(&mut self) -> Result<EmuStatus, MemError<Self::Tag>> {
         if self.ready() { Ok(self.run()) }
         else { 
             log!(
@@ -615,7 +615,7 @@ where T: Send + Sync, U: Send + Sync {
 pub enum EmuStatus {
     Pause,
     Stopped,
-    EmuError(MemError)
+    EmuError
 }
 
 #[derive(Debug, Clone)]

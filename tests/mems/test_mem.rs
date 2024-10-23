@@ -1,7 +1,7 @@
 
-use std::{sync::Arc, thread};
+use std::thread;
 
-use meme::{core::IMem, helpers, mems::basic::BasicMem, objs::com::{ObjChannel, SendMsg, SendWrapper}, rules::{com::SendRule, BasicCondition, BasicEffect}};
+use meme::{core::IMem, helpers, mems::basic::BasicMem, objs::com::{ObjChannel, SendMsg, SendWrapper}, rules::{com::SendReceiveRule, BasicCondition, BasicEffect}};
 use meme_derive::*;
 use crate::{objs::{TestObjA, TestObjB}, rules::{TestRuleA, TestRuleB}};
 
@@ -62,9 +62,10 @@ impl TestComRule {
                     let co = req.the_tagged(0).unwrap();
                     let ct: &i32 = co.obj_tag();
                     let v = vec![
-                        SendWrapper { obj: Arc::new(TestObjA::new(helpers::IdGen::next_i32_id(), 555.555)), channel_t: ct.clone() }
+                        SendWrapper::new(Box::new(TestObjA::new(helpers::IdGen::next_i32_id(), 555.555)), ct.clone())
                     ];
-                    Box::new(SendMsg::<i32>::new(helpers::IdGen::next_i32_id(), v))
+                    let pobj = Box::new(SendMsg::<i32>::new(helpers::IdGen::next_i32_id(), v));
+                    pobj
                 })
                 .crate_obj(|_| Box::new(StopObj { tag: helpers::IdGen::next_i32_id() }))
                 .build(),
@@ -89,7 +90,7 @@ pub fn basics() {
             Box::new(TestRuleB::new(1)),
             Box::new(TestRuleStop::new(2)),
             Box::new(TestComRule::new(4, ids[2])),
-            Box::new(SendRule::new(3, vec![ids[2]])),
+            Box::new(SendReceiveRule::new(3, vec![ids[2]])),
         ]
     );
 

@@ -1,11 +1,11 @@
-use std::{fmt::Debug, hash::Hash};
+use std::{fmt::Debug, hash::Hash, sync:: Mutex};
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use krnl::scalar::Scalar;
 use meme_derive::IObj;
-use crate::{self as meme, core::{ArcObj, TypeGroup}, errors::MemError};
+use crate::{self as meme, core::{PObj, TypeGroup}, errors::MemError};
 
-pub type ObjChannel<T, U = u32, OT = T, OU = U> = Channel<T, U, ArcObj<OT, OU>>;
+pub type ObjChannel<T, U = u32, OT = T, OU = U> = Channel<T, U, PObj<OT, OU>>;
 
 #[derive(IObj, Debug)]
 #[obj_type(TypeGroup::Com)]
@@ -68,15 +68,15 @@ DT: Debug + 'static {
         Self { tag, amount: U::one(), r: self.r.clone(), s: self.s.clone() }
     }
 
-    pub fn send(&self, d: DT) -> Result<(), MemError> {
+    pub fn send(&self, d: DT) -> Result<(), MemError<DT>> {
         Ok(self.s.send(d)?)
     }
 
-    pub fn receive(&self) -> Result<DT, MemError>  {
+    pub fn receive(&self) -> Result<DT, MemError<DT>>  {
         Ok(self.r.recv()?)
     }
 
-    pub fn try_receive(&self) -> Result<DT, MemError>  {
+    pub fn try_receive(&self) -> Result<DT,  MemError<DT>>  {
         Ok(self.r.try_recv()?)
     }
 }
@@ -103,7 +103,7 @@ where
 T: Eq + Hash + Clone + Debug + 'static, 
 U: Scalar,
 DT: Debug + 'static {
-    pub fn send(&self, d: DT) -> Result<(), MemError> {
+    pub fn send(&self, d: DT) -> Result<(),  MemError<DT>> {
         Ok(self.s.send(d)?)
     }
 }
@@ -128,26 +128,40 @@ where
 T: Eq + Hash + Clone + Debug + 'static, 
 U: Scalar,
 DT: Debug + 'static {
-    pub fn receive(&self) -> Result<DT, MemError>  {
+    pub fn receive(&self) -> Result<DT,  MemError<DT>>  {
         Ok(self.r.recv()?)
     }
 }
 
 #[derive(Debug)]
-pub struct SendWrapper<OT, OU, CT = OT> {
-    pub obj: ArcObj<OT, OU>,
+pub struct SendWrapper<OT, OU, CT = OT>
+where 
+OT: Send + Sync,
+OU: Send + Sync,
+CT: Send + Sync {
+    pub obj: Mutex<Option<PObj<OT, OU>>>,
     pub channel_t: CT
+}
+
+impl<OT, OU, CT> SendWrapper<OT, OU, CT>
+where 
+OT: Send + Sync,
+OU: Send + Sync,
+CT: Send + Sync {
+    pub fn new(obj: PObj<OT, OU>, channel_t: CT) -> Self {
+        Self { obj: Mutex::new(Some(obj)), channel_t }
+    }
 }
 
 #[derive(IObj, Debug)]
 #[obj_type(TypeGroup::Com)]
 pub struct SendMsg<T, U = u32, OU = U, OT = T, CT = T>
 where 
-T: Eq + Hash + Clone + Debug + 'static, 
+T: Eq + Hash + Clone + Debug + Send + Sync + 'static, 
 U: Scalar,
 OU: Scalar,
-OT: Debug + 'static, 
-CT: Debug + 'static {
+OT: Debug + Send + Sync + 'static, 
+CT: Debug + Send + Sync + 'static {
     #[tag]
     tag: T,
     #[amount]
@@ -158,11 +172,11 @@ CT: Debug + 'static {
 
 impl<T, U, OU, OT, CT> SendMsg<T, U, OU, OT, CT>
 where 
-T: Eq + Hash + Clone + Debug + 'static, 
+T: Eq + Hash + Clone + Debug + Send + Sync + 'static, 
 U: Scalar,
 OU: Scalar,
-OT: Debug + 'static, 
-CT: Debug + 'static {
+OT: Debug + Send + Sync + 'static, 
+CT: Debug + Send + Sync + 'static {
     pub fn new(tag: T, send_msgs: Vec<SendWrapper<OT, OU, CT>>) -> Self {
         Self { tag, amount: U::one(), send_msgs }
     }

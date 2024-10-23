@@ -113,9 +113,9 @@ impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
     }
 
      /// 选取指定tag的对象
-     pub fn some_tagged(mut self, mut tags: Vec<T>) -> Self {
+     pub fn some_tagged(mut self, tags: Vec<T>) -> Self {
         let otg = self.of_tag.get_or_insert(Vec::new());
-        while let Some(t) = tags.pop() {
+        for t in tags {
             otg.push(TaggedPresence::OfTag(t));
         }
         self

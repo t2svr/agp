@@ -1,43 +1,45 @@
 use std::fmt;
 
-pub struct MemError {
-    pub info: String
+pub struct MemError<T> {
+    pub info: String,
+    pub data: Option<T>
 }
 
-impl fmt::Display for MemError {
+impl<T> fmt::Display for MemError<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "An Error Occurred in our system") 
     }
 }
 
-impl fmt::Debug for MemError {
+impl<T> fmt::Debug for MemError<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{{ file: {}, line: {} }}", file!(), line!())
     }
 }
 
-impl<DT> From<crossbeam_channel::SendError<DT>> for MemError {
-    fn from(value: crossbeam_channel::SendError<DT>) -> Self {
-        Self { info: value.to_string() }
+impl<T> From<crossbeam_channel::SendError<T>> for MemError<T> {
+    fn from(value: crossbeam_channel::SendError<T>) -> Self {
+        Self { info: value.to_string(), data: Some(value.into_inner()) }
     }
 }
 
-impl From<crossbeam_channel::RecvError> for MemError {
+impl<T> From<crossbeam_channel::RecvError> for MemError<T> {
     fn from(value: crossbeam_channel::RecvError) -> Self {
-        Self { info: value.to_string() }
+        Self { info: value.to_string(), data: None }
     }
 }
 
-impl From<crossbeam_channel::TryRecvError> for MemError {
+impl<T> From<crossbeam_channel::TryRecvError> for MemError<T> {
     fn from(value: crossbeam_channel::TryRecvError) -> Self {
-        Self { info: value.to_string() }
+        Self { info: value.to_string(), data: None }
     }
 }
 
-impl MemError {
+impl<T> MemError<T> {
     pub fn new(s: &str) -> Self {
         Self {
-            info: String::from(s)
+            info: String::from(s),
+            data: None
         }
     }
 }
