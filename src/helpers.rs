@@ -79,7 +79,8 @@ where T: Send + Sync, U: Send + Sync {
 pub struct ConditionBuilder<T = u32, U = u32>
 where T: Clone + Hash + Eq, U: Scalar{
     of_type: Option<UntaggedPresences<U>>,
-    of_tag: Option<TaggedPresences<T>>
+    of_tag: Option<TaggedPresences<T>>,
+    last_added_is_otg: bool
 }
 
 impl<T: Clone + Hash + Eq, U: Scalar> Default for ConditionBuilder<T, U> {
@@ -92,7 +93,8 @@ impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
     pub fn new() -> Self {
         Self {
             of_type: None,
-            of_tag: None
+            of_tag: None,
+            last_added_is_otg: false
         }
     }
     
@@ -101,14 +103,17 @@ impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
         oty.push(UntaggedPresence {
             ty: ObjType::new::<Obj>(&crate::core::DEFAULT_GROUP),
             amount,
+            take: false
         });
+        self.last_added_is_otg = false;
         self
     }
 
     /// 选取指定tag的对象
     pub fn the_tagged(mut self, tag: T) -> Self {
         let otg = self.of_tag.get_or_insert(Vec::new());
-        otg.push(TaggedPresence::OfTag(tag));
+        otg.push(TaggedPresence::of_tag(tag, false));
+        self.last_added_is_otg = true;
         self
     }
 
@@ -116,8 +121,9 @@ impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
      pub fn some_tagged(mut self, tags: Vec<T>) -> Self {
         let otg = self.of_tag.get_or_insert(Vec::new());
         for t in tags {
-            otg.push(TaggedPresence::OfTag(t));
+            otg.push(TaggedPresence::of_tag(t, false));
         }
+        self.last_added_is_otg = true;
         self
     }
 
@@ -125,7 +131,7 @@ impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
     /// 可以使用[`ConditionBuilder::some_untagged`]来要求该类对象数量满足  
     /// 因为untagged会被优先检查，失败时提前返回，避免选择的开销，例如：  
     /// 
-    /// 
+    /// # 例子
     /// ```
     /// use meme_derive::IObj;
     /// use meme::rules::BasicCondition;
@@ -143,7 +149,38 @@ impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
     /// ```
     pub fn rand_tagged<Obj: IObj + 'static>(mut self, count: usize) -> Self {
         let otg = self.of_tag.get_or_insert(Vec::new());
-        otg.push(TaggedPresence::RandTags((ObjType::new::<Obj>(&crate::core::DEFAULT_GROUP), count)));
+        otg.push(TaggedPresence::rand_tags((ObjType::new::<Obj>(&crate::core::DEFAULT_GROUP), count), false));
+        self.last_added_is_otg = true;
+        self
+    }
+
+    pub fn by_ref(mut self) -> Self {
+        if self.last_added_is_otg {
+            if let Some(ref mut otg) = self.of_tag {
+                if let Some(tg) = otg.last_mut() {
+                    tg.take = false;
+                }
+            }
+        } else if let Some(ref mut oty) = self.of_type {
+            if let Some(ty) = oty.last_mut() {
+                ty.take = false;
+            }
+        }
+        self
+    }
+
+    pub fn by_take(mut self) -> Self {
+        if self.last_added_is_otg {
+            if let Some(ref mut otg) = self.of_tag {
+                if let Some(tg) = otg.last_mut() {
+                    tg.take = true;
+                }
+            }
+        } else if let Some(ref mut oty) = self.of_type {
+            if let Some(ty) = oty.last_mut() {
+                ty.take = true;
+            }
+        }
         self
     }
 
@@ -271,39 +308,75 @@ pub fn gpu_buffer_zeros<T: krnl::scalar::Scalar>(size: usize) -> Option<BufferBa
     }
 }
 
-/// 批量移除Vec元素(就地unsafe)
+/// 批量移除Vec元素  
+/// indexes 为无序不重复的下标  
+/// 警告：使用了 unsafe 方法 暂未完全测试  
+/// 为了接受无序的 indexes 使用了辅助空间 `O(n)`  
+/// 
+/// # 例子
+/// ```
+/// let mut v = vec![0,1,2,3,4,5,6];
+/// let to_remove_ind = vec![0,2,5,6,10];
+/// let res = meme::helpers::vec_batch_remove(&mut v, &to_remove_ind);
+/// assert_eq!(res[0], Some(0));
+/// assert_eq!(res[1], Some(2));
+/// assert_eq!(res[2], Some(5));
+/// assert_eq!(res[3], Some(6));
+/// assert_eq!(res[4], None);
+/// 
+/// assert_eq!(v, vec![1, 3, 4]);
+/// 
+/// let res_another = meme::helpers::vec_batch_remove(&mut v, &vec![0, 1, 2]);
+/// assert!(v.is_empty());
+/// assert_eq!(res_another, vec![Some(1), Some(3), Some(4)]);
+/// ```
 #[inline]
 #[allow(unused_assignments)]
-pub fn vec_batch_remove_inplace<T>(v: &mut Vec<T>, indexes: &[usize]) {
-    let mut indexes_sorted = indexes.to_owned();
-    indexes_sorted.sort_unstable();
-    let (mut cp_start_pos, mut cp_end_pos, mut cp_to_pos) = (0usize, 0usize, 0usize);
-    let mut i = 0;
-    while i < indexes_sorted.len() {
-        assert!((0..v.len()).contains(&indexes_sorted[i]));
-        cp_to_pos = indexes_sorted[i] - i;
-        cp_start_pos = indexes_sorted[i] + 1;
-        while i + 1 < indexes_sorted.len() 
-        && cp_start_pos == indexes_sorted[i + 1] {
-            cp_start_pos += 1;
-            i += 1;
+pub fn vec_batch_remove<T>(v: &mut Vec<T>, indexes: &[usize]) -> Vec<Option<T>> {
+    let mut disp = vec![(false, 0); v.len()];
+    let mut ret = Vec::with_capacity(indexes.len());
+    let mut valied_removed_count = 0;
+    ret.resize_with(indexes.len(), || None );
+    indexes.iter().enumerate().for_each(|(i, j)| {
+        if *j < v.len() {
+            disp[*j] = (true, i);
+            valied_removed_count += 1;
+        } 
+    });
+    let mut indexes_sorted = disp.iter().enumerate().filter(|(_, d)| d.0 ).map(|(i,d)|(i, d.1));
+   
+    let (mut cp_start_pos, mut cp_to_pos) = (0usize, 0usize);
+    let mut back_shift = 0;
+    let mut opt_this = indexes_sorted.next();
+    while let Some(this) = opt_this {
+        unsafe{
+            let ptr_removed = v.as_ptr().add(this.0);
+            ret[this.1] = Some(std::ptr::read(ptr_removed));
         }
-        cp_end_pos = if i + 1 < indexes_sorted.len() {
-            indexes_sorted[i + 1] - 1
-        } else { 
-             v.len() - 1 
+        cp_to_pos = this.0 - back_shift;
+        let opt_next = indexes_sorted.next();
+        let count = if let Some(next) = opt_next {
+            unsafe {
+                let ptr_removed = v.as_ptr().add(next.0);
+                ret[next.1] = Some(std::ptr::read(ptr_removed));
+            }
+            next.0 - this.0 - 1
+        } else {
+            v.len() - this.0 - 1
         };
-        if cp_start_pos >= v.len() {
-            break;
-        }
+        cp_start_pos = this.0 + 1;
+
         unsafe {
             let dst = v.as_mut_ptr().add(cp_to_pos);
             let src = v.as_mut_ptr().add(cp_start_pos);
-            std::ptr::copy(src, dst, cp_end_pos - cp_start_pos + 1);
+            std::ptr::copy(src, dst, count);
         }
-        i += 1;
+
+        back_shift += 1;
+        opt_this = opt_next;
     }
-    v.truncate(v.len() - indexes.len());
+    v.truncate(v.len() - valied_removed_count);
+    ret
 }
 
 /* 

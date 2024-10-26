@@ -92,7 +92,7 @@ pub fn basic_rule_store_test() {
     let check_res = rst.check_on_tagged(&ost);
     assert_eq!(rst.index_of(&0), Some(0));
     assert!(check_res.conflict_executable.is_none());
-    assert!(check_res.parallel_executable.is_some_and(|v| v[0] == 0 && v.len() == 1));
+    assert!(check_res.parallel_executable.is_some_and(|v| v[0].rule_index == 0 && v.len() == 1));
 
     assert!(rst.remove(&0).is_some_and(|r| *r.obj_tag() == 0));
     let check_res_new = rst.check_on_tagged(&ost);

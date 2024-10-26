@@ -74,7 +74,7 @@ pub fn basic_obj_store_test() {
     let tys = vec![pat.obj_type(), pbt.obj_type()];
 
     assert!(st.remove(&1).is_some());
-    assert_eq!(*st.amount(), vec![1,2]);
+    assert_eq!(*st.amounts().collect::<Vec<_>>(), vec![&1, &2]);
     assert_eq!(st.amount_of(&tys[0]), Some(1));
     assert_eq!(st.amount_of(&tys[1]), Some(2));
     

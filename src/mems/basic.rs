@@ -115,14 +115,14 @@ U: Scalar  {
             if let Some(pe) = executable.parallel_executable { 
                 let (mut to_add, mut to_remove) = pe.par_iter()
                     .filter_map(|i| {
-                        self.rules.effect_of(*i).and_then(|e| e.effects().as_ref()).map(|es| (i, es))
+                        self.rules.effect_of(i.rule_index).and_then(|e| e.effects().as_ref()).map(|es| (i, es))
                     })
                     .map(|(i, es)| {
                         let (mut to_add_tmp, mut to_remove_tmp) = (Vec::new(), Vec::new());
-                        let req_set = if let Some(tgs) = self.rules.condition_of(*i).and_then(|c| c.tagged().as_ref()) {
+                        let req_set = if let Some(tgs) = self.rules.condition_of(i.rule_index).and_then(|c| c.tagged().as_ref()) {
                             let mut res = Vec::new();
                             for tp in tgs {
-                                if let TaggedPresence::OfTag(t) = tp {
+                                if let TaggedPresenceInfo::OfTag(t) = &tp.info {
                                     res.push(self.objs.get(t).unwrap());
                                 }
                             }
@@ -130,16 +130,19 @@ U: Scalar  {
                         } else {
                             None
                         };
-                        let req_rand = executable.rand_tags_for.get(i)
-                        .map(|r| 
-                            r.iter().map(|v| 
-                                v.iter().map(|t| 
-                                    self.objs.get(t).unwrap()
-                                ).collect::<Vec<_>>()
-                            ).collect::<Vec<Vec<_>>>()
-                        );
-                       
-                        let req = RequestedObj { set: req_set, rand: req_rand };
+
+                        let req_rand = if let Some(r_tgs) = &i.rand_tags {
+                            Some(
+                                r_tgs.iter().map(|v| 
+                                    v.iter().map(|t| 
+                                        self.objs.get(t).unwrap()
+                                    ).collect::<Vec<_>>()
+                                ).collect::<Vec<Vec<_>>>()
+                            )
+                        } else {
+                            None
+                        };
+                        let req = RequestedObj::new(req_set, req_rand);
                         Self::effect_proc(es, req, &stop, &mut to_add_tmp, &mut to_remove_tmp);
                         (to_add_tmp, to_remove_tmp)
                     })
@@ -163,25 +166,25 @@ U: Scalar  {
                 ce.shuffle(&mut rng);
                 let (mut to_add_tmp, mut to_remove_tmp) = (Vec::new(), Vec::new());
                 self.rules.dynamic_execute(
-                    &mut self.objs, Some(&ce),
+                    &mut self.objs, Some(ce),
                     |os, e, req| {
                        
                         if let Some(es) = e.and_then(|e| e.effects().as_ref()) {
-                            let r = RequestedObj {
-                                set: if req.0.is_empty() { None } else {
+                            let (set, rand) = (
+                                if req.0.is_empty() { None } else {
                                     Some(
                                         req.0.iter().map(|t| os.get(t).unwrap()).collect::<Vec<_>>()
                                     )
                                 },
-                                rand: if req.1.is_empty() { None } else {
+                                if req.1.is_empty() { None } else {
                                     Some(
                                         req.1.iter().map(|v| {
                                             v.iter().map(|t| os.get(t).unwrap()).collect::<Vec<_>>()
                                         }).collect::<Vec<_>>()
                                     )
                                 },
-                            };
-                        
+                            );
+                            let r = RequestedObj::new(set, rand);
                             Self::effect_proc(es, r, &stop, &mut to_add_tmp, &mut to_remove_tmp);
                             while let Some(t) = to_remove_tmp.pop() {
                                 os.remove(&t);

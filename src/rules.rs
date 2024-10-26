@@ -96,7 +96,7 @@ C: ICondition<OT, OU> {
         }
     }
 
-    pub fn rules(&self) -> &Vec<PRule<T, OT, U, OU, E, C>> {
+    pub fn rules(&self) -> impl Iterator<Item = &PRule<T, OT, U, OU, E, C>> {
         self.inner.vals()
     }
 }
@@ -136,7 +136,7 @@ C: ICondition<OT, OU> {
                     }
                 }
             }
-            Some(old.1)
+            Some(old)
         } else {
             None
         }
@@ -153,9 +153,9 @@ C: ICondition<OT, OU> {
                 }
             }
         }
-        if let Some(old) =  self.inner.insert(t, v) {
-            let ind = self.index_of(&old.0).unwrap();
-            if let Some(o_req) = old.1.condition().untagged() {
+        if let Some(old) =  self.inner.insert(t.clone(), v) {
+            let ind = self.index_of(&t).unwrap();
+            if let Some(o_req) = old.condition().untagged() {
                 for o in o_req {
                     let a = self.amount.get_mut(&o.ty.tid).unwrap();
                     if *a > o.amount {
@@ -166,7 +166,7 @@ C: ICondition<OT, OU> {
                 }
             }
             self.stat[ind] = cond;
-            Some(old.1)
+            Some(old)
         } else {
             self.stat.push(cond);
             None
@@ -174,11 +174,19 @@ C: ICondition<OT, OU> {
     }
     
     fn iter<'a>(&'a self) -> impl Iterator<Item = &'a PRule<T, OT, U, OU, E, C>> where PRule<T, OT, U, OU, E, C>: 'a {
-        self.inner.vals().iter()
+        self.inner.vals()
     }
     
     fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut PRule<T, OT, U, OU, E, C>> where PRule<T, OT, U, OU, E, C>: 'a {
-        self.inner.vals_mut().iter_mut()
+        self.inner.vals_mut()
+    }
+    
+    fn get_batch(&self, ts: &[T]) -> Vec<&PRule<T, OT, U, OU, E, C>> {
+        ts.iter().filter_map(|t| self.inner.get(t)).collect()
+    }
+    
+    fn remove_batch(&mut self, ts: &[T]) -> Vec<PRule<T, OT, U, OU, E, C>> {
+        ts.iter().filter_map(|t| self.inner.remove(t)).collect()
     }
   
 }
@@ -204,10 +212,10 @@ C: ICondition<OT, OU> {
     }
     
     fn effect_of(&self, ind: usize) -> Option<&E> {
-        self.inner.vals().get(ind).map(|r| r.effect())
+        self.inner.at(ind).map(|r| r.effect())
     }
 
     fn condition_of(&self, ind: usize) -> Option<&C> {
-        self.inner.vals().get(ind).map(|r| r.condition())
+        self.inner.at(ind).map(|r| r.condition())
     }
 }

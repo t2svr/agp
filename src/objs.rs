@@ -79,11 +79,21 @@ where T: Clone + Hash + Eq, U: Scalar {
         self.instances.values_mut()
     }
     
+    /// 按顺序获取ts中对应tag的value，不存在的会被略过
+    fn get_batch(&self, ts: &[T]) -> Vec<&PObj<T, U>> {
+        ts.iter().filter_map(|t| self.instances.get(t)).collect()
+    }
+
+    /// 按顺序移除ts中对应tag的value并返回，不存在的会被略过
+    fn remove_batch(&mut self, ts: &[T]) -> Vec<PObj<T, U>> {
+        ts.iter().filter_map(|t| self.instances.remove(t)).collect()
+    }
+    
 }
 
 impl<T, U> IObjStat<U> for BasicObjStore<T, U>
 where T: Clone + Hash + Eq, U: Scalar  {
-    fn amount(&self) -> &Vec<U> {
+    fn amounts(&self) -> impl Iterator<Item = &U> {
         self.amount.vals()
     }
 
@@ -109,5 +119,9 @@ where T: Clone + Hash + Eq, U: Scalar  {
     
     fn dismiss(&mut self) {
         self.modified = false;
+    }
+    
+    fn type_count(&self) -> usize {
+        self.amount.len()
     }
 }

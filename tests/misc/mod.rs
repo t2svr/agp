@@ -13,15 +13,15 @@ pub fn index_map_test() {
     assert_eq!(*m.get(&1).unwrap(), 'a');
     assert_eq!(m.index_of(&2).unwrap(), 1);
     let v1 = vec!['a', 'b', 'c', 'd'];
-    assert!(v1.iter().zip(m.vals().iter()).all(|(a, b)| {
+    assert!(v1.iter().zip(m.vals()).all(|(a, b)| {
         a == b
     }));
     let r = m.get_mut(&4).unwrap();
     *r = 'e';
     assert_eq!(*m.get(&4).unwrap(), 'e');
-    assert_eq!(m.remove(&3).unwrap(), (3, 'c'));
+    assert_eq!(m.remove(&3).unwrap(), 'c');
     let v2 = vec!['a',  'b',  'e'];
-    assert!(v2.iter().zip(m.vals().iter()).all(|(a, b)| {
+    assert!(v2.iter().zip(m.vals()).all(|(a, b)| {
         a == b
     }));
     assert_eq!(m.index_of(&1), Some(0));
@@ -51,4 +51,18 @@ pub fn choose_iter_test() {
         assert_eq!(ite.next(), Some(&0.3));
     }
   
+}
+
+#[test]
+pub fn vec_batch_remove_test() {
+    let mut v = vec![0,1,2,3,4,5,6];
+    let to_remove_ind = vec![0,2,5,6,10];
+    let res = meme::helpers::vec_batch_remove(&mut v, &to_remove_ind);
+    assert_eq!(res[0], Some(0));
+    assert_eq!(res[1], Some(2));
+    assert_eq!(res[2], Some(5));
+    assert_eq!(res[3], Some(6));
+    assert_eq!(res[4], None);
+
+    assert_eq!(v, vec![1,3,4]);
 }
