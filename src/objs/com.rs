@@ -1,3 +1,4 @@
+// Copyright 2024 Junshuang Hu
 use std::{fmt::Debug, hash::Hash, sync:: Mutex};
 
 use crossbeam_channel::{unbounded, Receiver, Sender};

@@ -1,3 +1,4 @@
+// Copyright 2024 Junshuang Hu
 use std::fmt;
 
 pub struct MemError<T> {

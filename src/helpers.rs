@@ -1,3 +1,4 @@
+// Copyright 2024 Junshuang Hu
 use std::hash::Hash;
 use std::sync::atomic::{self, Ordering};
 
@@ -7,7 +8,7 @@ use krnl::scalar::Scalar;
 use log::Level;
 use log::log;
 
-use crate::core::{ICondition, IObj, IRuleEffect, ObjCrateFn, ObjRemoveFn, ObjType, ObjsCrateFn, ObjsRemoveFn, OperationEffect, TaggedPresence, TaggedPresences, UntaggedPresence, UntaggedPresences};
+use crate::core::{ICondition, IObj, IRuleEffect, ObjCrateFn, ObjRemoveFn, ObjType, ObjsCrateFn, ObjsRemoveFn, OperationEffect, TaggedPresence, TaggedPresences, UntaggedPresence, UntaggedPresences, UseBy};
 use crate::gpu;
 use crate::lib_info::log_target;
 
@@ -112,7 +113,7 @@ impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
     /// 选取指定tag的对象
     pub fn the_tagged(mut self, tag: T) -> Self {
         let otg = self.of_tag.get_or_insert(Vec::new());
-        otg.push(TaggedPresence::of_tag(tag, false));
+        otg.push(TaggedPresence::of_tag(tag, UseBy::None));
         self.last_added_is_otg = true;
         self
     }
@@ -121,7 +122,7 @@ impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
      pub fn some_tagged(mut self, tags: Vec<T>) -> Self {
         let otg = self.of_tag.get_or_insert(Vec::new());
         for t in tags {
-            otg.push(TaggedPresence::of_tag(t, false));
+            otg.push(TaggedPresence::of_tag(t, UseBy::None));
         }
         self.last_added_is_otg = true;
         self
@@ -149,43 +150,57 @@ impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
     /// ```
     pub fn rand_tagged<Obj: IObj + 'static>(mut self, count: usize) -> Self {
         let otg = self.of_tag.get_or_insert(Vec::new());
-        otg.push(TaggedPresence::rand_tags((ObjType::new::<Obj>(&crate::core::DEFAULT_GROUP), count), false));
+        otg.push(TaggedPresence::rand_tags((ObjType::new::<Obj>(&crate::core::DEFAULT_GROUP), count), UseBy::None));
         self.last_added_is_otg = true;
         self
     }
 
     pub fn by_ref(mut self) -> Self {
-        if self.last_added_is_otg {
-            if let Some(ref mut otg) = self.of_tag {
-                if let Some(tg) = otg.last_mut() {
-                    tg.take = false;
-                }
-            }
-        } else if let Some(ref mut oty) = self.of_type {
-            if let Some(ty) = oty.last_mut() {
-                ty.take = false;
-            }
-        }
+        self.set_last_tagged(UseBy::Ref);
         self
     }
 
     pub fn by_take(mut self) -> Self {
         if self.last_added_is_otg {
-            if let Some(ref mut otg) = self.of_tag {
-                if let Some(tg) = otg.last_mut() {
-                    tg.take = true;
-                }
-            }
-        } else if let Some(ref mut oty) = self.of_type {
-            if let Some(ty) = oty.last_mut() {
-                ty.take = true;
-            }
+            self.set_last_tagged(UseBy::Tag);
+        } else {
+            self.set_last_untagged(true);
         }
+        self
+    }
+
+    pub fn no_use(mut self) -> Self {
+        if self.last_added_is_otg {
+            self.set_last_tagged(UseBy::None);
+        } else {
+            self.set_last_untagged(false);
+        }
+        self
+    }
+
+    pub fn by_tag(mut self) -> Self {
+        self.set_last_tagged(UseBy::Tag);
         self
     }
 
     pub fn build<C: ICondition<T, U>>(&mut self) -> C {
         C::from_builder(self.of_type.take(), self.of_tag.take())
+    }
+
+    fn set_last_tagged(&mut self, use_by_new: UseBy) {
+        if let Some(ref mut otg) = self.of_tag {
+            if let Some(tg) = otg.last_mut() {
+                tg.use_by = use_by_new;
+            }
+        }
+    }
+
+    fn set_last_untagged(&mut self, is_take: bool){
+        if let Some(ref mut oty) = self.of_type {
+            if let Some(ty) = oty.last_mut() {
+                ty.take = is_take;
+            }
+        }
     }
     
 }
@@ -332,12 +347,12 @@ pub fn gpu_buffer_zeros<T: krnl::scalar::Scalar>(size: usize) -> Option<BufferBa
 /// ```
 #[inline]
 #[allow(unused_assignments)]
-pub fn vec_batch_remove<T>(v: &mut Vec<T>, indexes: &[usize]) -> Vec<Option<T>> {
+pub fn vec_batch_remove<T>(v: &mut Vec<T>, indexes: &[usize]) -> Vec<Option<T>> { // todo: 改为快排
     let mut disp = vec![(false, 0); v.len()];
     let mut ret = Vec::with_capacity(indexes.len());
     let mut valied_removed_count = 0;
     ret.resize_with(indexes.len(), || None );
-    indexes.iter().enumerate().for_each(|(i, j)| {
+    indexes.iter().enumerate().for_each(|(i, j)| { 
         if *j < v.len() {
             disp[*j] = (true, i);
             valied_removed_count += 1;

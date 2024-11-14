@@ -5,6 +5,18 @@ use meme::core::{IObjStat, ITaggedStore, TypeGroup};
 use meme::objs::BasicObjStore;
 use meme_derive::IObj;
 
+#[derive(IObj, Debug)]
+#[obj_type(TypeGroup::Normal)]
+pub struct TestObjC {
+    #[tag]
+    tag: i32
+}
+
+impl TestObjC {
+    pub fn new(tag: i32) -> Self {
+        Self {tag}
+    }
+}
 
 #[derive(IObj, Debug)]
 #[obj_type(TypeGroup::Normal)]
@@ -86,6 +98,6 @@ pub fn basic_obj_store_test() {
     ite.next();
     assert!(ite.next().is_none());
 
-    assert_eq!(*st.get_tid(0).unwrap(), TypeId::of::<TestObjA>());
+    assert_eq!(*st.tid_at(0).unwrap(), TypeId::of::<TestObjA>());
 
 }

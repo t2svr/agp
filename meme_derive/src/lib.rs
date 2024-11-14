@@ -1,3 +1,4 @@
+// Copyright 2024 Junshuang Hu
 extern crate proc_macro;
 
 use std::borrow::Borrow;

@@ -1,3 +1,4 @@
+// Copyright 2024 Junshuang Hu
 pub mod core;
 pub mod lib_info;
 pub mod errors;

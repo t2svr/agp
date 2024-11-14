@@ -1,7 +1,7 @@
 use meme::{core::{IObj, IRuleStat, ITaggedStore}, helpers, objs::BasicObjStore, rules::{BasicCondition, BasicEffect, BasicRuleStore}};
 use meme_derive::{IObj, IRule};
 
-use crate::objs::{TestObjA, TestObjB};
+use crate::objs::{TestObjA, TestObjB, TestObjC};
 
 #[derive(IObj, IRule, Debug)]
 pub struct TestRuleA {
@@ -19,12 +19,12 @@ impl TestRuleA {
             tag,
 
             cond: helpers::condition_builder()
-                .the_tagged(req_id)
+                .the_tagged(req_id).by_ref()
                 .build(),
 
             eff: helpers::effect_builder()
                 .crate_obj(|req| {
-                    let old = req.the_tagged(0).unwrap();
+                    let old = req.set_ref(0).unwrap();
                     let mut new_inner = 10.0;
                     if let Some(o) = old.as_any().downcast_ref::<TestObjA>() {
                         new_inner += o.get_inner()
@@ -53,14 +53,39 @@ impl TestRuleB {
 
             cond: helpers::condition_builder()
             .some_untagged::<TestObjA>(10)
-            .rand_tagged::<TestObjA>(10)
+            .rand_tagged::<TestObjA>(10).by_ref()
             .build(),
 
             eff: helpers::effect_builder()
             .crate_obj(|_| Box::new(TestObjB::new(helpers::IdGen::next_i32_id())))
             .remove_objs(|req| {
-                req.rand_tagged(0).unwrap().iter().map(|o| o.obj_tag().clone()).collect::<Vec<_>>()
+                req.rand_refs(0).unwrap().iter().map(|o| o.obj_tag().clone()).collect::<Vec<_>>()
             })
+            .build(),
+        }
+    }
+}
+
+#[derive(IObj, IRule, Debug)]
+pub struct TestRuleC {
+    #[tag]
+    t: u32,
+    #[condition]
+    cond: BasicCondition<i32>,
+    #[effect]
+    eff: BasicEffect<i32>
+}
+
+impl TestRuleC {
+    pub fn new(tag: u32) -> Self {
+        Self {
+            t: tag,
+
+            cond: helpers::condition_builder()
+            .build(),
+
+            eff: helpers::effect_builder()
+            .crate_obj(|_| Box::new(TestObjC::new(helpers::IdGen::next_i32_id())))
             .build(),
         }
     }
@@ -90,12 +115,12 @@ pub fn basic_rule_store_test() {
     assert!(!rst.contains(&3));
     assert!(rst.get(&0).is_some_and(|r| r.obj_tag() == &0));
     let check_res = rst.check_on_tagged(&ost);
-    assert_eq!(rst.index_of(&0), Some(0));
+    assert_eq!(rst.pos_of(&0), Some(0));
     assert!(check_res.conflict_executable.is_none());
     assert!(check_res.parallel_executable.is_some_and(|v| v[0].rule_index == 0 && v.len() == 1));
 
     assert!(rst.remove(&0).is_some_and(|r| *r.obj_tag() == 0));
-    let check_res_new = rst.check_on_tagged(&ost);
+    let check_res_new = rst.check_on(&ost);
     assert!(check_res_new.conflict_executable.is_none() && check_res_new.parallel_executable.is_none());
 
     // todo: 测试规则的执行

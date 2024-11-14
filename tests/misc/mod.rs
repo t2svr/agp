@@ -1,7 +1,9 @@
 use std::borrow::Borrow;
 
-use meme::core::IndexMap;
+use meme::core::{IndexMap, PObj, PRule};
 use rand::{thread_rng, Rng};
+
+use crate::mems::test_mem::TestRuleStop;
 
 #[test]
 pub fn index_map_test() {
@@ -65,4 +67,14 @@ pub fn vec_batch_remove_test() {
     assert_eq!(res[4], None);
 
     assert_eq!(v, vec![1,3,4]);
+}
+
+#[test]
+pub fn rule_obj_cast_test() {
+    let rule: PRule<u32, i32> = Box::new(TestRuleStop::new(2));
+    let rule_actual = rule.as_any().downcast_ref::<TestRuleStop>();
+    assert!(rule_actual.is_some());
+    let rule_clone = rule_actual.unwrap().clone();
+    let rule_as_obj: PObj<u32> = Box::new(rule_clone);
+    assert!(rule_as_obj.obj_type() == rule.obj_type());
 }

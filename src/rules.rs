@@ -1,3 +1,4 @@
+// Copyright 2024 Junshuang Hu
 use std::{any::TypeId, hash::Hash};
 
 use ahash::AHashMap;
@@ -13,7 +14,7 @@ pub mod com;
 //     pub action_obj_gen: Option<>
 // }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BasicEffect<T = u32, U = u32>
 where T: Send + Sync, U: Send + Sync {
     effects: Option<Vec<OperationEffect<T, U>>>,
@@ -123,7 +124,7 @@ C: ICondition<OT, OU> {
     }
 
     fn remove(&mut self, t: &T) -> Option<PRule<T, OT, U, OU, E, C>> {
-        let old_ind = self.index_of(t);
+        let old_ind = self.pos_of(t);
         if let Some(old) = self.inner.remove(t) {
             let old_c = self.stat.remove(old_ind.unwrap());
             if let Some(o_req) = old_c.untagged() {
@@ -154,7 +155,7 @@ C: ICondition<OT, OU> {
             }
         }
         if let Some(old) =  self.inner.insert(t.clone(), v) {
-            let ind = self.index_of(&t).unwrap();
+            let ind = self.pos_of(&t).unwrap();
             if let Some(o_req) = old.condition().untagged() {
                 for o in o_req {
                     let a = self.amount.get_mut(&o.ty.tid).unwrap();
@@ -181,13 +182,36 @@ C: ICondition<OT, OU> {
         self.inner.vals_mut()
     }
     
-    fn get_batch(&self, ts: &[T]) -> Vec<&PRule<T, OT, U, OU, E, C>> {
+    fn get_batch(&self, ts: &[T]) -> Vec<Option<&PRule<T, OT, U, OU, E, C>>> {
+        ts.iter().map(|t| self.inner.get(t)).collect()
+    }
+     
+    fn get_batch_skip(&self, ts: &[T]) -> Vec<&PRule<T, OT, U, OU, E, C>> {
         ts.iter().filter_map(|t| self.inner.get(t)).collect()
     }
     
-    fn remove_batch(&mut self, ts: &[T]) -> Vec<PRule<T, OT, U, OU, E, C>> {
-        ts.iter().filter_map(|t| self.inner.remove(t)).collect()
+    fn remove_batch(&mut self, ts: &[T]) -> Vec<Option<PRule<T, OT, U, OU, E, C>>> {
+        let mut res_kv=  self.inner.remove_batch(ts);
+        res_kv.iter_mut()
+        .map(|kv| kv.take().map(|(_,v)|v))
+        .collect::<Vec<_>>()
     }
+    
+    fn remove_batch_skip(&mut self, ts: &[T]) ->  Vec<PRule<T, OT, U, OU, E, C>>  {
+        let mut res_kv=  self.inner.remove_batch(ts);
+        res_kv.iter_mut()
+        .filter_map(|kv| kv.take().map(|(_,v)|v))
+        .collect::<Vec<_>>()
+    }
+    
+    fn len(&self) -> usize {
+        self.inner.len()
+    }
+    
+    fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+   
   
 }
 
@@ -199,23 +223,33 @@ U: Scalar,
 OU: Scalar,
 E: IRuleEffect, 
 C: ICondition<OT, OU> {
-    fn index_of(&self, t: &T) -> Option<usize> {
+    fn pos_of(&self, t: &T) -> Option<usize> {
         self.inner.index_of(t)
     }
 
-    fn conditions(&self) -> &Vec<C> {
-        &self.stat
+    fn tag_at(&self, i: usize) -> Option<T> {
+        self.inner.at(i).map(|r| r.obj_tag().clone())
     }
+
+ 
     
     fn req_of_types(&self) -> &AHashMap<TypeId, OU> {
         &self.amount
     }
     
-    fn effect_of(&self, ind: usize) -> Option<&E> {
+    fn effect_at(&self, ind: usize) -> Option<&E> {
         self.inner.at(ind).map(|r| r.effect())
     }
 
-    fn condition_of(&self, ind: usize) -> Option<&C> {
+    fn condition_at(&self, ind: usize) -> Option<&C> {
         self.inner.at(ind).map(|r| r.condition())
+    }
+    
+    fn conditions<'a>(&'a self) -> impl Iterator<Item = &'a C> where C: 'a {
+        self.stat.iter()
+    }
+    
+    fn conditions_count(&self) -> usize {
+        self.len()
     }
 }

@@ -1,3 +1,4 @@
+// Copyright 2024 Junshuang Hu
 pub fn hello_meme() -> &'static str {
 "
 This is Membrane Emulator lib.

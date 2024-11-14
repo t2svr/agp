@@ -1,3 +1,4 @@
+// Copyright 2024 Junshuang Hu
 use ahash::{AHashMap, AHashSet};
 use krnl::scalar::Scalar;
 use rand::seq::IteratorRandom;
@@ -6,10 +7,13 @@ use rand::seq::SliceRandom;
 use crate::errors::MemError;
 use crate::helpers;
 use crate::lib_info::log_target;
+use crate::rules::BasicCondition;
+use crate::rules::BasicEffect;
 
 use std::any::Any;
 
 use std::any::TypeId;
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
@@ -18,15 +22,18 @@ use log::{log, Level};
 pub type IntoSRStr = dyn Into<&'static str>;
 pub type PObj<T, U = u32> = Box<dyn IObj<Tag = T, Unit = U> + Send + Sync>;
 pub type ArcObj<T, U = u32> = Arc<dyn IObj<Tag = T, Unit = U> + Send + Sync>;
-pub type PRule<T, OT, U, OU, E, C> = Box<dyn IRule<Tag = T, ObjTag = OT, Unit = U, ObjUnit = OU, Effect = E, Condition = C> + Send + Sync>;
+pub type PRule<T, OT = T, U = u32, OU = U, E = BasicEffect<OT, OU>, C = BasicCondition<OT, OU>> 
+            = Box<dyn IRule<Tag = T, ObjTag = OT, Unit = U, ObjUnit = OU, Effect = E, Condition = C> + Send + Sync>;
 pub type UntaggedPresences<U> = Vec<UntaggedPresence<U>>;
 pub type TaggedPresences<T> = Vec<TaggedPresence<T>>;
 
-pub type ObjsCrateFn<T, U> = fn(&RequestedObj<T, U>) -> Vec<PObj<T, U>>;
-pub type ObjCrateFn<T, U> = fn(&RequestedObj<T, U>) -> PObj<T, U>;
-pub type ObjsRemoveFn<T, U> = fn(&RequestedObj<T, U>) -> Vec<T>;
-pub type ObjRemoveFn<T, U> = fn(&RequestedObj<T, U>) -> T;
+pub type ObjsCrateFn<T, U> = fn(&mut RequestedObj<T, U>) -> Vec<PObj<T, U>>;
+pub type ObjCrateFn<T, U> = fn(&mut RequestedObj<T, U>) -> PObj<T, U>;
+pub type ObjsRemoveFn<T, U> = fn(&mut RequestedObj<T, U>) -> Vec<T>;
+pub type ObjRemoveFn<T, U> = fn(&mut RequestedObj<T, U>) -> T;
 pub type Vvec<T> = Vec<Vec<T>>;
+pub type Qvec<T> = VecDeque<Vec<T>>;
+pub type DynamicRequest<OT> = (VecDeque<DynamicRequestItem<OT>>, VecDeque<DynamicRequestItem<Vec<OT>>>);
 
 pub const DEFAULT_GROUP: TypeGroup = TypeGroup::Normal;
 
@@ -42,39 +49,71 @@ pub trait IObj: Debug {
 
 pub trait ITaggedStore<Tag, Value> {
     fn contains(&self, t: &Tag) -> bool;
-    fn get(&self, t: &Tag) -> Option<&Value>;
-    fn get_batch(&self, ts: &[Tag]) -> Vec<&Value>;
+    fn len(&self) -> usize;
+    fn is_empty(&self) -> bool;
+
     fn iter<'a>(&'a self) -> impl Iterator<Item = &'a Value> where Value: 'a;
     fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut Value> where Value: 'a;
+
+    fn get(&self, t: &Tag) -> Option<&Value>;
+    /// 批量获取  
+    /// 按顺序获取 `ts` 中 `tag` 对应的 `value`，不存在的会返回 `None`
+    fn get_batch(&self, ts: &[Tag]) -> Vec<Option<&Value>>;
+    /// 批量获取  
+    /// 按顺序获取 `ts` 中 `tag` 对应的 `value`，不存在的会跳过
+    fn get_batch_skip(&self, ts: &[Tag]) -> Vec<&Value>;
     fn get_mut(&mut self, t: &Tag) -> Option<&mut Value>;
-    fn remove(&mut self, t: &Tag) -> Option<Value>;
-    fn remove_batch(&mut self, ts: &[Tag]) -> Vec<Value>;
+
+    /// 添加 `(t, v)`  
+    /// 如果已存在 `(t, v_old)` 则替换并返回 `(t, v_old)`
     fn add_or_update(&mut self, t: Tag, v: Value) -> Option<Value>;
+
+    fn remove(&mut self, t: &Tag) -> Option<Value>;
+    /// 批量删除  
+    /// 按顺序移除并返回 `ts` 中 `tag` 对应的 `value`，不存在的会返回 `None`
+    fn remove_batch(&mut self, ts: &[Tag]) -> Vec<Option<Value>>;
+    /// 批量删除  
+    /// 按顺序移除并返回 `ts` 中 `tag` 对应的 `value`，不存在的会被跳过
+    fn remove_batch_skip(&mut self, ts: &[Tag]) -> Vec<Value>;
 }
 
-pub trait IUntaggedStore<T, Unit: Scalar> {
-    fn contains(&self, ty: &T) -> bool;
-    fn get(&self, ty: T) -> Option<&Unit>;
-    fn increase(&mut self, ty: &T, amount: Unit) -> Option<Unit>;
-    fn decrease(&mut self, ty: &T, amount: Unit) -> Option<Unit>;
-    fn remove(&mut self, ty: &T)-> Option<Unit>;
+pub trait IUntaggedStore<Ty, Unit: Scalar> {
+    fn contains_u(&self, ty: &Ty) -> bool;
+    fn len_u(&self) -> usize;
+    fn is_empty_u(&self) -> bool;
+
+    fn iter_u<'a>(&'a self) -> impl Iterator<Item = &'a Unit> where Unit: 'a;
+    fn iter_mut_u<'a>(&'a mut self) -> impl Iterator<Item = &'a mut Unit> where Unit: 'a;
+
+    fn get_u(&self, ty: &Ty) -> Option<Unit>;
+    /// 增加 `ty` 对象的数量  
+    /// 如果已有 `ty` 对象 将增加 `amount` 单位并返回 `true`  
+    /// 如果不存在则插入 `amount` 单位的 `ty` 并返回 `false`
+    fn increase(&mut self, ty: &Ty, amount: Unit) -> bool;
+    /// 减少 `ty` 对象的数量  
+    /// 如果已有足够的 `ty` 对象 将减少 `amount` 单位并返回 `true`  
+    /// 如果不存在 `ty` 或者数量不足则返回 `false`
+    fn decrease(&mut self, ty: &Ty, amount: Unit) -> bool;
+    fn remove_u(&mut self, ty: &Ty)-> Option<Unit>;
 }
 
 /// todo: 保证高效实现下的一致性
 pub trait IObjStat<Unit: Scalar> {
-    fn index_of(&self, ty: &ObjType) -> Option<usize>;
+    fn pos_of(&self, ty: &ObjType) -> Option<usize>;
     fn type_count(&self) -> usize;
-    fn get_tid(&self, pos: usize) -> Option<&TypeId>;
-    /// 该方法用于表示是否存在对象的更改  
-    /// 如果对象被更改（或可能更改）则返回 true，否之返回 false  
-    /// 使用 [`IObjStat::dismiss()`] 来确认已处理更改，使该方法返回 false
-    fn modified(&self) -> bool;
-    /// 该方法用于确认外部已经处理了对象更改  
-    /// 置 [`IObjStat::modified()`] 为 false
-    fn dismiss(&mut self);
+    fn tid_at(&self, pos: usize) -> Option<&TypeId>;
+
     fn amounts(&self) -> impl Iterator<Item = &Unit>;
     fn amount_of(&self, ty: &ObjType) -> Option<Unit>;
     fn amount_of_many(&self, tys: &[ObjType]) -> Vec<&Unit>;
+
+    // /// 该方法用于表示是否存在对象的更改  
+    // /// 如果对象被更改（或可能更改）则返回 true，否之返回 false  
+    // /// 使用 [`IObjStat::dismiss()`] 来确认已处理更改，使该方法返回 false
+    // fn modified(&self) -> bool;
+    // /// 该方法用于确认外部已经处理了对象更改  
+    // /// 置 [`IObjStat::modified()`] 为 false
+    // fn dismiss(&mut self);
 }
 
 /// Effect 由规则产生，但是由膜解释，故在此处类型不受限  
@@ -92,7 +131,7 @@ pub trait IObjStat<Unit: Scalar> {
 ///   - 生物体中多种细胞协同运行，不同类型的膜系统可以结合成为一个更大的系统（可以称为组合膜系统）
 ///   - 组合膜系统中就可以使用泛用型规则，简化设计，优化性能
 /// 
-/// todo: 引入两个接口，提供在 Effect 中使用 Condition 在检查时选择的对象的 tag 的能力
+/// todo: 引入两个接口，提供在 Effect 中使用 Condition 在检查时选择的对象的 tag 的能力 -ok
 pub trait IRuleEffect {
     type Effect: Clone;
     fn from_builder(effs: Option<Vec<Self::Effect>>) -> Self;
@@ -122,33 +161,35 @@ pub trait IRule: IObj {
 /// todo: 保证高效实现下的一致性
 pub trait IRuleStat<T, OT, U, E, C>
 where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
-    fn index_of(&self, t: &T) -> Option<usize>;
-    fn conditions(&self) -> &Vec<C>;
-    fn effect_of(&self, ind: usize) -> Option<&E>;
-    fn condition_of(&self, ind: usize) -> Option<&C>;
+    fn pos_of(&self, t: &T) -> Option<usize>;
+    fn tag_at(&self, pos: usize) -> Option<T>;
+    fn effect_at(&self, pos: usize) -> Option<&E>;
+    fn condition_at(&self, pos: usize) -> Option<&C>;
+    fn conditions_count(&self) -> usize;
+
+    fn conditions<'a>(&'a self) -> impl Iterator<Item = &'a C> where C: 'a;
     fn req_of_types(&self) -> &AHashMap<TypeId, U>;
+    
     /// 默认的检查方式可以分离出能并行应用的规则子集（不保证最大）  
     /// 如果不需要提前知道无冲突并行子集（即不需要冲突避免）  
     /// 可以使用 [`IRuleStat::check_on_simple`]
     fn check_on<OS>(&mut self, os: &OS) -> ExecutableRules<OT> 
-    where OS: ITaggedStore<OT, PObj<OT, U>> + IObjStat<U> {
+    where OS: ITaggedStore<OT, PObj<OT, U>> + IUntaggedStore<TypeId, U> + IObjStat<U> {
         let mut rng = rand::thread_rng();
         let mut released_amount = vec![U::zero(); os.type_count()];
-        let mut used_tgs: AHashMap<OT, (usize, Option<usize>, bool)> = AHashMap::new(); 
-        let mut rand_tags = Vec::new();
+        let mut used_tgs: AHashMap<OT, (usize, bool)> = AHashMap::new(); 
       
-        let mut conflict_executable = Vec::<ExecutableInfo<OT>>::new();
+        let mut conflict_executable = VecDeque::<ExecutableInfo<OT>>::new();
 
         let mut first_tag_confli = AHashSet::new();
 
-        let executable = self.conditions() 
-            .iter()
+        let mut executable = self.conditions() 
             .enumerate()
             .filter_map(|(i, c)| {
                 let mut tag_satisfied = true;
                 let mut amount_satisfied = true;
                 let mut choosed: AHashSet<OT> = AHashSet::new();
-                let mut choosed_each = Vec::new();
+                let mut choosed_each = None;
                 
                 if let Some(uts) = c.untagged() {
                     for u in uts {
@@ -158,7 +199,8 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                         }
                     }
                 }
-                
+
+                let (mut tag_set, mut tag_rand) = (None, None);
                 if amount_satisfied {
                     if let Some(tgs) = c.tagged() {
                         for t in tgs {
@@ -167,6 +209,9 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                                     if !os.contains(tg) {
                                         tag_satisfied = false;
                                         break;
+                                    }
+                                    if t.use_by == UseBy::Tag {
+                                        tag_set.get_or_insert(Vec::new()).push(tg.clone());
                                     }
                                     choosed.insert(tg.clone());
                                 },
@@ -186,7 +231,11 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                                     for t in choosed_new.iter() {
                                         choosed.insert(t.clone());
                                     }
-                                    choosed_each.push(choosed_new);
+                                    if t.use_by == UseBy::Tag {
+                                        tag_rand.get_or_insert(Vec::new()).push(choosed_new);
+                                    } else if t.use_by != UseBy::None {
+                                        choosed_each.get_or_insert(VecDeque::new()).push_back(choosed_new);
+                                    }
                                 }
                             };
                         }
@@ -194,46 +243,35 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                 }
 
                 if tag_satisfied && amount_satisfied {
-                    let rand_tgs_ind = if !choosed_each.is_empty() {
-                        rand_tags.push(Some(choosed_each));
-                        Some(rand_tags.len() - 1)
-                    } else { None };
-
+                    let einfo = ExecutableInfo { 
+                        rule_index: i, 
+                        rand_tags: choosed_each,
+                        requested_tag: RequestTyped::new_opt(tag_set, tag_rand)
+                    };
                     let mut tag_confli = false;
                     if c.tagged().is_some() {
                         for t in choosed {
-                            if let Some((first_pos, first_rand_tgs_ind, conflicted)) = used_tgs.get_mut(&t) {
+                            if let Some((first_pos, conflicted)) = used_tgs.get_mut(&t) {
                                 if !(*conflicted) {
                                     *conflicted = true;
-                                    if first_tag_confli.insert(*first_pos) {
-                                        conflict_executable.push(
-                                            ExecutableInfo { 
-                                                rule_index: *first_pos, 
-                                                rand_tags: first_rand_tgs_ind.and_then(|i| rand_tags[i].take())
-                                            }
-                                        );
-                                    }
+                                    first_tag_confli.insert(*first_pos);
                                 }
                                 tag_confli = true;
                             } else {
-                                used_tgs.insert(t, (i, rand_tgs_ind, false));
+                                used_tgs.insert(t, (i, false));
                             }
                         }
                     }
-                    
                     if tag_confli {
-                        conflict_executable.push(ExecutableInfo { 
-                            rule_index: i, 
-                            rand_tags: rand_tgs_ind.and_then(|i| rand_tags[i].take())
-                        });
+                        conflict_executable.push_back(einfo);
                         None
                     } else {
-                        Some((i, rand_tgs_ind))
+                        Some(Some(einfo))
                     }
                 } else {
                     if let Some(uts) = c.untagged() { // 确认该规则无法执行，从IRuleStat统计中释放需要的untagged对象
                         for u in uts {
-                            if let Some(ind) = os.index_of(&u.ty) {
+                            if let Some(ind) = os.pos_of(&u.ty) {
                                 released_amount[ind] += u.amount;
                             }
                         }
@@ -246,7 +284,7 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
             .zip(released_amount.iter())
             .enumerate()
             .filter_map(|(i, (a, r))| {
-                let tid = os.get_tid(i).unwrap();
+                let tid = os.tid_at(i).unwrap();
                 if let Some(req) = self.req_of_types().get(tid) {
                     if *req > *a + *r { 
                         return Some(*tid);
@@ -257,29 +295,30 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
             }).fold(AHashSet::new(), |mut acc, e| { acc.insert(e); acc});
        
         let parallel_executable = executable
-            .iter()
-            .filter_map(|i| 
-                if first_tag_confli.contains(&i.0) {
+            .iter_mut()
+            .filter_map(|einfo| {
+                if einfo.is_none() {
                     None
                 } else {
-                    Some((i, &self.conditions()[i.0]))
-                }
-            )
-            .filter_map(|((i, rand_tgs_i), c)| {
-                let einfo = ExecutableInfo { 
-                    rule_index: *i, 
-                    rand_tags: rand_tgs_i.and_then(|i| rand_tags[i].take())
-                };
-                if let Some(uts) = c.untagged() {
-                    for u in uts {
-                        if conflict_tys.contains(&u.ty.tid) {
-                            conflict_executable.push(einfo);
-                            return None;
+                    let i = einfo.as_ref().map(|info| info.rule_index).unwrap();
+                    if first_tag_confli.contains(&i) {
+                        conflict_executable.push_back(einfo.take().unwrap());
+                        None
+                    } else {
+                        if let Some(c) = self.condition_at(i) {
+                            if let Some(uts) = c.untagged() {
+                                for u in uts {
+                                    if conflict_tys.contains(&u.ty.tid) {
+                                        conflict_executable.push_back(einfo.take().unwrap());
+                                        return None;
+                                    }
+                                }
+                            }
                         }
+                        einfo.take()
                     }
                 }
-                Some(einfo)
-            }).collect::<Vec<_>>();
+            }).collect::<VecDeque<_>>();
 
         ExecutableRules {
             parallel_executable: if parallel_executable.is_empty() { None } else { Some(parallel_executable) },
@@ -288,18 +327,15 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
     }
     
     fn check_on_simple<OS>(&mut self, os: &OS) -> ExecutableRules<OT> 
-    where OS: ITaggedStore<OT, PObj<OT, U>> + IObjStat<U> {
+    where OS: ITaggedStore<OT, PObj<OT, U>> + IUntaggedStore<TypeId, U> + IObjStat<U> {
         let mut rng = rand::thread_rng();
-        let mut released_amount = vec![U::zero(); os.type_count()];
-
         let conflict_executable = self.conditions() 
-            .iter()
             .enumerate()
             .filter_map(|(i, c)| {
                 let mut tag_satisfied = true;
                 let mut amount_satisfied = true;
                 let mut choosed: AHashSet<OT> = AHashSet::new();
-                let mut choosed_each = Vec::new();
+                let mut choosed_each = None;
                 
                 if let Some(uts) = c.untagged() {
                     for u in uts {
@@ -309,7 +345,8 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                         }
                     }
                 }
-                
+
+                let (mut tag_set, mut tag_rand) = (None, None);
                 if amount_satisfied {
                     if let Some(tgs) = c.tagged() {
                         for t in tgs {
@@ -318,6 +355,9 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                                     if !os.contains(tg) {
                                         tag_satisfied = false;
                                         break;
+                                    }
+                                    if t.use_by == UseBy::Tag {
+                                        tag_set.get_or_insert(Vec::new()).push(tg.clone());
                                     }
                                     choosed.insert(tg.clone());
                                 },
@@ -337,7 +377,11 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                                     for t in choosed_new.iter() {
                                         choosed.insert(t.clone());
                                     }
-                                    choosed_each.push(choosed_new);
+                                    if t.use_by == UseBy::Tag {
+                                        tag_rand.get_or_insert(Vec::new()).push(choosed_new);
+                                    } else if t.use_by != UseBy::None {
+                                        choosed_each.get_or_insert(VecDeque::new()).push_back(choosed_new);
+                                    }
                                 }
                             };
                         }
@@ -345,19 +389,16 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                 }
 
                 if tag_satisfied && amount_satisfied {
-                    let rand_tags = if choosed_each.is_empty() { None } else { Some(choosed_each) };
-                    Some(ExecutableInfo { rule_index: i, rand_tags })
+                    let einfo = ExecutableInfo { 
+                        rule_index: i, 
+                        rand_tags: choosed_each,
+                        requested_tag: RequestTyped::new_opt(tag_set, tag_rand)
+                    };
+                    Some(einfo)
                 } else {
-                    if let Some(uts) = c.untagged() { // 确认该规则无法执行，从IRuleStat统计中释放需要的untagged对象
-                        for u in uts {
-                            if let Some(ind) = os.index_of(&u.ty) {
-                                released_amount[ind] += u.amount;
-                            }
-                        }
-                    }
                     None
                 }
-            }).collect::<Vec<_>>();
+            }).collect::<VecDeque<_>>();
 
         ExecutableRules {
             parallel_executable: None,
@@ -368,23 +409,21 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
     fn check_on_tagged<OS>(&mut self, os: &OS) -> ExecutableRules<OT> 
     where OS: ITaggedStore<OT, PObj<OT, U>> + IObjStat<U> {
         let mut rng = rand::thread_rng();
-        
-        let mut used_tgs: AHashMap<OT, (usize, Option<usize>, bool)> = AHashMap::new(); 
-        let mut rand_tags = Vec::new();
+        let mut used_tgs: AHashMap<OT, (usize, bool)> = AHashMap::new(); 
       
-        let mut conflict_executable = Vec::<ExecutableInfo<OT>>::new();
+        let mut conflict_executable = VecDeque::<ExecutableInfo<OT>>::new();
 
         let mut first_tag_confli = AHashSet::new();
 
-        let executable = self.conditions() 
-            .iter()
+        let mut executable = self.conditions() 
             .enumerate()
             .filter_map(|(i, c)| {
                 let mut tag_satisfied = true;
-          
                 let mut choosed: AHashSet<OT> = AHashSet::new();
-                let mut choosed_each = Vec::new();
+                let mut choosed_each = None;
            
+                let (mut tag_set, mut tag_rand) = (None, None);
+                
                 if let Some(tgs) = c.tagged() {
                     for t in tgs {
                         match &t.info {
@@ -392,6 +431,9 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                                 if !os.contains(tg) {
                                     tag_satisfied = false;
                                     break;
+                                }
+                                if t.use_by == UseBy::Tag {
+                                    tag_set.get_or_insert(Vec::new()).push(tg.clone());
                                 }
                                 choosed.insert(tg.clone());
                             },
@@ -403,7 +445,8 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                                         } else {
                                             None
                                         }
-                                    }).choose_multiple(&mut rng, *c);
+                                    })
+                                    .choose_multiple(&mut rng, *c);
                                 if choosed_new.len() != *c {
                                     tag_satisfied = false;
                                     break;
@@ -411,49 +454,41 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                                 for t in choosed_new.iter() {
                                     choosed.insert(t.clone());
                                 }
-                                choosed_each.push(choosed_new);
+                                if t.use_by == UseBy::Tag {
+                                    tag_rand.get_or_insert(Vec::new()).push(choosed_new);
+                                } else if t.use_by != UseBy::None {
+                                    choosed_each.get_or_insert(VecDeque::new()).push_back(choosed_new);
+                                }
                             }
                         };
                     }
                 }
-                
-
-                if tag_satisfied {
-                    let rand_tgs_ind = if !choosed_each.is_empty() {
-                        rand_tags.push(Some(choosed_each));
-                        Some(rand_tags.len() - 1)
-                    } else { None };
-
+            
+                if tag_satisfied  {
+                    let einfo = ExecutableInfo { 
+                        rule_index: i, 
+                        rand_tags: choosed_each,
+                        requested_tag: RequestTyped::new_opt(tag_set, tag_rand)
+                    };
                     let mut tag_confli = false;
                     if c.tagged().is_some() {
                         for t in choosed {
-                            if let Some((first_pos, first_rand_tgs_ind, conflicted)) = used_tgs.get_mut(&t) {
+                            if let Some((first_pos, conflicted)) = used_tgs.get_mut(&t) {
                                 if !(*conflicted) {
                                     *conflicted = true;
-                                    if first_tag_confli.insert(*first_pos) {
-                                        conflict_executable.push(
-                                            ExecutableInfo { 
-                                                rule_index: *first_pos, 
-                                                rand_tags: first_rand_tgs_ind.and_then(|i| rand_tags[i].take())
-                                            }
-                                        );
-                                    }
+                                    first_tag_confli.insert(*first_pos);
                                 }
                                 tag_confli = true;
                             } else {
-                                used_tgs.insert(t, (i, rand_tgs_ind, false));
+                                used_tgs.insert(t, (i, false));
                             }
                         }
                     }
-                    
                     if tag_confli {
-                        conflict_executable.push(ExecutableInfo { 
-                            rule_index: i, 
-                            rand_tags: rand_tgs_ind.and_then(|i| rand_tags[i].take())
-                        });
+                        conflict_executable.push_back(einfo);
                         None
                     } else {
-                        Some((i, rand_tgs_ind))
+                        Some(Some(einfo))
                     }
                 } else {
                     None
@@ -461,21 +496,20 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
             }).collect::<Vec<_>>();
 
         let parallel_executable = executable
-            .iter()
-            .filter_map(|i| 
-                if first_tag_confli.contains(&i.0) {
+            .iter_mut()
+            .filter_map(|einfo| {
+                if einfo.is_none() {
                     None
                 } else {
-                    Some(i)
+                    let i = einfo.as_ref().map(|info| info.rule_index).unwrap();
+                    if first_tag_confli.contains(&i) {
+                        conflict_executable.push_back(einfo.take().unwrap());
+                        None
+                    } else {
+                        einfo.take()
+                    }
                 }
-            )
-            .filter_map(|(i, rand_tgs_i)| {
-                let einfo = ExecutableInfo { 
-                    rule_index: *i, 
-                    rand_tags: rand_tgs_i.and_then(|i| rand_tags[i].take())
-                };
-                Some(einfo)
-            }).collect::<Vec<_>>();
+            }).collect::<VecDeque<_>>();
 
         ExecutableRules {
             parallel_executable: if parallel_executable.is_empty() { None } else { Some(parallel_executable) },
@@ -487,16 +521,14 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
     where OS: IUntaggedStore<OT, U> + IObjStat<U> {
        
         let mut released_amount = vec![U::zero(); os.type_count()];
+       
+        let mut conflict_executable = VecDeque::<ExecutableInfo<OT>>::new();
 
-        let mut conflict_executable = Vec::new();
-
-        let executable = self.conditions() 
-            .iter()
+        let mut executable = self.conditions() 
             .enumerate()
             .filter_map(|(i, c)| {
-
                 let mut amount_satisfied = true;
-
+           
                 if let Some(uts) = c.untagged() {
                     for u in uts {
                         if  os.amount_of(&u.ty).is_none_or(|a| a < u.amount) {
@@ -505,13 +537,18 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                         }
                     }
                 }
-                
+
                 if amount_satisfied {
-                    Some(i)
+                    let einfo = ExecutableInfo { 
+                        rule_index: i, 
+                        rand_tags: None,
+                        requested_tag: None
+                    };
+                    Some(Some(einfo))
                 } else {
                     if let Some(uts) = c.untagged() { // 确认该规则无法执行，从IRuleStat统计中释放需要的untagged对象
                         for u in uts {
-                            if let Some(ind) = os.index_of(&u.ty) {
+                            if let Some(ind) = os.pos_of(&u.ty) {
                                 released_amount[ind] += u.amount;
                             }
                         }
@@ -524,7 +561,7 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
             .zip(released_amount.iter())
             .enumerate()
             .filter_map(|(i, (a, r))| {
-                let tid = os.get_tid(i).unwrap();
+                let tid = os.tid_at(i).unwrap();
                 if let Some(req) = self.req_of_types().get(tid) {
                     if *req > *a + *r { 
                         return Some(*tid);
@@ -533,21 +570,29 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                 }
                 None
             }).fold(AHashSet::new(), |mut acc, e| { acc.insert(e); acc});
-
+       
         let parallel_executable = executable
-            .iter()
-            .map(|i| (i, &self.conditions()[*i]))
-            .filter_map(|(i, c)| {
-                if let Some(uts) = c.untagged() {
-                    for u in uts {
-                        if conflict_tys.contains(&u.ty.tid) {
-                            conflict_executable.push(ExecutableInfo { rule_index: *i, rand_tags: None });
-                            return None;
+            .iter_mut()
+            .filter_map(|einfo| {
+                if einfo.is_none() {
+                    None
+                } else {
+                    let i =einfo.as_ref().map(|info| info.rule_index).unwrap();
+                   
+                    if let Some(c) = self.condition_at(i) {
+                        if let Some(uts) = c.untagged() {
+                            for u in uts {
+                                if conflict_tys.contains(&u.ty.tid) {
+                                    conflict_executable.push_back(einfo.take().unwrap());
+                                    return None;
+                                }
+                            }
                         }
                     }
+                    einfo.take()
+                    
                 }
-                Some(ExecutableInfo { rule_index: *i, rand_tags: None })
-            }).collect::<Vec<_>>();
+            }).collect::<VecDeque<_>>();
 
         ExecutableRules {
             parallel_executable: if parallel_executable.is_empty() { None } else { Some(parallel_executable) },
@@ -556,28 +601,24 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
     }
     /// 动态执行 `rule_indexes` 中的规则，如果 `rule_indexes` 为 [`None`] 则尝试执行所有规则
     /// todo: 在分配rand时出现问题 -ok， 原因：在迭代器上enumerate 然而 迭代器中Condition并非顺序
-    fn dynamic_execute<OS, F>(&mut self, os: &mut OS, rules_info: Option<Vec<ExecutableInfo<OT>>>, mut handler: F)
-    where OS: ITaggedStore<OT, PObj<OT, U>> + IObjStat<U>, F: FnMut(&mut OS, Option<&E>, (Vec<OT>, Vvec<OT>)) {
+    fn dynamic_execute<OS, F>(&mut self, os: &mut OS, rules_info: Option<VecDeque<ExecutableInfo<OT>>>, mut handler: F)
+    where OS: ITaggedStore<OT, PObj<OT, U>> + IUntaggedStore<TypeId, U> + IObjStat<U>, F: FnMut(&mut OS, Option<T>, Option<&E>, DynamicRequest<OT>) {
         let mut rng = rand::thread_rng();
 
         let mut rinfo = rules_info.unwrap_or({
-            let mut tmp = (0..self.conditions().len()).map(|i| ExecutableInfo { rule_index: i, rand_tags: None }).collect::<Vec<_>>();
-            tmp.shuffle(&mut rng);
+            let mut tmp = (0..self.conditions_count()).map(|i| ExecutableInfo { rule_index: i, rand_tags: None, requested_tag: None })
+            .collect::<VecDeque<_>>();
+            tmp.make_contiguous().shuffle(&mut rng);
             tmp
         });
     
-        let ite = rinfo.iter_mut().filter_map(|i| self.condition_of(i.rule_index).map(|c| (i, c)));
+        let ite = rinfo.iter_mut().filter_map(|i| self.condition_at(i.rule_index).map(|c| (i, c)));
         
         ite.for_each(|(i, c)| {
             let mut choosed: AHashSet<OT> = AHashSet::new();
-            let mut skip_rand_choose = false;
-            let mut rand = if i.rand_tags.is_some() { 
-                skip_rand_choose = true;
-                i.rand_tags.take().unwrap()
-             } else { 
-                Vec::new() 
-            };
-            let mut set = Vec::new();
+            let mut rand = VecDeque::new();
+            let mut set = VecDeque::new();
+           
             if let Some(uts) = c.untagged() {
                 for u in uts {
                     if os.amount_of(&u.ty).is_none_or(|a| a < u.amount ) {
@@ -586,28 +627,33 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                 }
             }
             if let Some(tgs) = c.tagged() {
-                for t in tgs {
+                for t in tgs {// todo: 如果已提供 不选择 -ok 需要增强
                     match &t.info {
                         TaggedPresenceInfo::OfTag(tg) => {
                             if !os.contains(tg) {
                                 return;
                             }
-                            set.push(tg.clone());
+                            if t.use_by != UseBy::None {
+                                set.push_back(DynamicRequestItem::new(tg.clone(), t.use_by.clone()));
+                            }
                             choosed.insert(tg.clone());
                         },
-                        TaggedPresenceInfo::RandTags((ty, c)) => {// todo: 如果已提供 不选择 -ok
-                            if skip_rand_choose {
-                                continue;
+                        TaggedPresenceInfo::RandTags((ty, c)) => {
+                            if t.use_by != UseBy::None {
+                                if let Some(v) = i.rand_tags.as_mut().and_then(|rtgs| rtgs.pop_front()) {
+                                    rand.push_back(DynamicRequestItem::new(v, t.use_by.clone()));
+                                    continue;
+                                }
                             }
                             let choosed_new = os.iter()
-                                .filter_map(|o| {
-                                    if o.obj_type() == *ty && !choosed.contains(o.obj_tag()) {
-                                        Some(o.obj_tag().clone())
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .choose_multiple(&mut rng, *c);
+                            .filter_map(|o| {
+                                if o.obj_type() == *ty && !choosed.contains(o.obj_tag()) {
+                                    Some(o.obj_tag().clone())
+                                } else {
+                                    None
+                                }
+                            })
+                            .choose_multiple(&mut rng, *c);
 
                             if choosed_new.len() != *c {
                                 return;
@@ -615,13 +661,16 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                             choosed_new.iter().for_each(|o|{
                                 choosed.insert(o.clone());
                             });
-                            rand.push(choosed_new);
+                            if t.use_by != UseBy::None {
+                                rand.push_back(DynamicRequestItem::new(choosed_new, t.use_by.clone()));
+                            }
+                            
                         }
                     };
                 }
             }
             //执行
-            handler(os, self.effect_of(i.rule_index), (set, rand));
+            handler(os, self.tag_at(i.rule_index), self.effect_at(i.rule_index), (set, rand));
         });
     }
 }
@@ -661,14 +710,16 @@ pub enum TypeGroup {
  // todo: 用闭包作为参数，膜执行闭包 -ok
  // todo: 随机地选择 tagged 对象 -ok
 #[derive(Debug, Clone)]
-pub enum OperationEffect<T = u32, U = u32>
-where T: Send + Sync, U: Send + Sync {
-    CreateObjs(ObjsCrateFn<T, U>),
-    CreateObj(ObjCrateFn<T, U>), 
-    RemoveObjs(ObjsRemoveFn<T, U>),
-    RemoveObj(ObjRemoveFn<T, U>),
-    CreateObjUntagged(ObjType),
-    RemoveObjUntagged((ObjType, U)),
+pub enum OperationEffect<OT = u32, U = u32>
+where 
+OT: Send + Sync, U: Send + Sync {
+    CreateObjs(ObjsCrateFn<OT, U>),
+    CreateObj(ObjCrateFn<OT, U>), 
+    RemoveObjs(ObjsRemoveFn<OT, U>),
+    RemoveObj(ObjRemoveFn<OT, U>),
+    IncreaseObjUntagged((ObjType, U)),
+    DecreaseObjUntagged((ObjType, U)),
+    RemoveObjUntagged(ObjType),
     DissolveMem,
     Pause,
     Stop
@@ -687,24 +738,29 @@ pub enum TaggedPresenceInfo<Tag> {
     RandTags((ObjType, usize))
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum UseBy {
+    None, Tag, Ref, Take
+}
+
 #[derive(Debug, Clone)] // todo: 标记 take -ok
 pub struct TaggedPresence<Tag> {
     pub info: TaggedPresenceInfo<Tag>,
-    pub take: bool,
+    pub use_by: UseBy
 }
 
 impl<Tag> TaggedPresence<Tag> {
-    pub fn of_tag(tag: Tag, take: bool) -> Self {
+    pub fn of_tag(tag: Tag, use_by: UseBy) -> Self {
         Self {
             info: TaggedPresenceInfo::OfTag(tag),
-            take,
+            use_by
         }
     }
 
-    pub fn rand_tags(tag_info: (ObjType, usize), take: bool) -> Self {
+    pub fn rand_tags(tag_info: (ObjType, usize), use_by: UseBy) -> Self {
         Self {
             info: TaggedPresenceInfo::RandTags(tag_info),
-            take,
+            use_by
         }
     }
 }
@@ -841,75 +897,107 @@ where K: Hash + Eq + Clone, V: Send + Sync {
 #[derive(Debug)]
 pub struct ExecutableInfo<T> {
     pub rule_index: usize,
-    pub rand_tags: Option<Vvec<T>>
+    pub rand_tags: Option<Qvec<T>>,
+    pub requested_tag: Option<RequestTyped<T>>
 }
 
 #[derive(Debug)]
 pub struct ExecutableRules<T> {
-    pub parallel_executable: Option<Vec<ExecutableInfo<T>>>,
-    pub conflict_executable: Option<Vec<ExecutableInfo<T>>>,
+    pub parallel_executable: Option<VecDeque<ExecutableInfo<T>>>,
+    pub conflict_executable: Option<VecDeque<ExecutableInfo<T>>>,
 }
+
+#[derive(Debug, Default)]
+pub struct RequestTyped<T> {
+   pub set: Option<Vec<T>>,
+   pub rand: Option<Vvec<T>>
+}
+
+impl<T> RequestTyped<T> {
+    pub fn new() -> Self {
+        Self {
+            set: None, rand: None
+        }
+    }
+
+    pub fn new_opt(set: Option<Vec<T>>, rand: Option<Vvec<T>>) -> Option<Self> {
+        if set.is_none() && rand.is_none() {
+            None
+        } else {
+            Some(Self {
+                set, rand
+            })
+        }
+    }
+
+    pub fn set_at(&self, pos: usize) -> Option<&T> {
+        self.set.as_ref().and_then(|s| s.get(pos))
+    }
+
+    pub fn rand_at(&self, pos: usize) -> Option<&Vec<T>> {
+        self.rand.as_ref().and_then(|s| s.get(pos))
+    }
+
+    pub fn set_at_mut(&mut self, pos: usize) -> Option<&mut T> {
+        self.set.as_mut().and_then(|s| s.get_mut(pos))
+    }
+
+    pub fn rand_at_mut(&mut self, pos: usize) -> Option<&mut Vec<T>> {
+        self.rand.as_mut().and_then(|s| s.get_mut(pos))
+    }
+}
+
+pub struct DynamicRequestItem<T> {
+    pub tag: T,
+    pub method: UseBy
+}
+
+impl<T> DynamicRequestItem<T> {
+    pub fn new(tag: T, method: UseBy) -> Self {
+        Self {
+            tag, method
+        }
+    }
+} 
 
 /// todo: 提供不获取对象引用的选项，在只需要对象tag时节省时间
 /// todo: 提供获得对象所有权的选项，以实现无锁通信规则
 #[derive(Debug)]
 pub struct RequestedObj<'a, T, U = u32> {
-    pub set: Option<Vec<&'a PObj<T, U>>>,
-    pub rand: Option<Vvec<&'a PObj<T, U>>>,
-
-    pub set_taken:  Option<Vec<PObj<T, U>>>,
-    pub rand_taken: Option<Vvec<PObj<T, U>>>,
-
-    pub set_tags: Option<Vec<T>>,
-    pub rand_tags: Option<Vvec<T>>,
+    pub refr: Option<RequestTyped<&'a PObj<T, U>>>,
+    pub take: Option<RequestTyped<PObj<T, U>>>,
+    pub tag: Option<RequestTyped<T>>,
 }
 
 impl<'a, T, U> RequestedObj<'a, T, U> {
-    pub fn new(set: Option<Vec<&'a PObj<T, U>>>, rand: Option<Vvec<&'a PObj<T, U>>>,) -> Self {
+    pub fn new(
+        refr: Option<RequestTyped<&'a PObj<T, U>>>,
+        take: Option<RequestTyped<PObj<T, U>>>,
+        tag: Option<RequestTyped<T>>,
+        ) -> Self {
         Self {
-            set,
-            rand,
-            set_taken: None,
-            rand_taken: None,
-            set_tags: None,
-            rand_tags: None,
-        }
-    }
-    
-    pub fn the_tagged(&self, i: usize) -> Option<&PObj<T, U>> {
-        if let Some(s) = &self.set {
-            if i >= s.len() {
-                None
-            } else {
-                Some(s[i])
-            }
-        } else {
-            None
-        }
-    }
-    pub fn rand_tagged(&self, i: usize) -> Option<&Vec<&PObj<T, U>>> {
-        if let Some(r) = &self.rand {
-            if i >= r.len() {
-                None
-            } else {
-                Some(&r[i])
-            }
-        } else {
-            None
+            refr, take, tag
         }
     }
 
-    pub fn the_rand_tagged(&self, i: usize, j: usize) -> Option<&PObj<T, U>> {
-        if let Some(r) = &self.rand {
-            if i >= r.len()
-            || j >= r[i].len() {
-                None
-            } else {
-                Some(r[i][j])
-            }
-        } else {
-            None
-        }
+    pub fn set_ref_all(&self) -> Option<&Vec<&PObj<T, U>>> {
+        self.refr.as_ref().and_then(|r| r.set.as_ref() )
+    }
+    
+    pub fn set_tag(&self, pos: usize) -> Option<&T> {
+        self.tag.as_ref().and_then(|t| t.set_at(pos))
+    }
+
+    pub fn rand_tags(&self, pos: usize) -> Option<&Vec<T>> {
+        self.tag.as_ref().and_then(|t| t.rand_at(pos))
+    }
+
+    pub fn set_ref(&self, pos: usize) -> Option<&PObj<T, U>> {
+        self.refr.as_ref().and_then(|r| r.set_at(pos).copied())
+    }
+
+    pub fn rand_refs(&self, pos: usize) -> Option<&Vec<&PObj<T, U>>> {
+        self.refr.as_ref().and_then(|r| r.rand_at(pos))
     }
 
 }

@@ -3,7 +3,7 @@ use std::thread;
 
 use meme::{core::IMem, helpers, mems::basic::BasicMem, objs::com::{ObjChannel, SendMsg, SendWrapper}, rules::{com::SendReceiveRule, BasicCondition, BasicEffect}};
 use meme_derive::*;
-use crate::{objs::{TestObjA, TestObjB}, rules::{TestRuleA, TestRuleB}};
+use crate::{objs::{TestObjA, TestObjB}, rules::{TestRuleA, TestRuleB, TestRuleC}};
 
 #[derive(IObj, Debug)]
 pub struct StopObj {
@@ -11,7 +11,7 @@ pub struct StopObj {
     tag: i32
 }
 
-#[derive(IObj, IRule, Debug)]
+#[derive(IObj, IRule, Debug, Clone)]
 pub struct TestRuleStop {
     #[tag]
     tag: u32,
@@ -54,12 +54,12 @@ impl TestComRule {
 
             cond: helpers::condition_builder()
                 .some_untagged::<TestObjB>(1)
-                .the_tagged(to_ch)
+                .the_tagged(to_ch).by_ref()
                 .build(),
 
             eff: helpers::effect_builder()
                 .crate_obj(|req| {
-                    let co = req.the_tagged(0).unwrap();
+                    let co = req.set_ref(0).unwrap();
                     let ct: &i32 = co.obj_tag();
                     let v = vec![
                         SendWrapper::new(Box::new(TestObjA::new(helpers::IdGen::next_i32_id(), 555.555)), ct.clone())
@@ -75,7 +75,7 @@ impl TestComRule {
 
 #[test]
 pub fn basics() {
-    let mut m = BasicMem::<u32, i32>::new(100);
+    let mut m = BasicMem::<u32, i32>::new(100, false);
     let mut ids = Vec::new();
     ids.resize_with(4, || helpers::IdGen::next_i32_id());
     let (ca, cb) = ObjChannel::<i32>::new_pair(ids[2], ids[3]);
@@ -89,8 +89,9 @@ pub fn basics() {
             Box::new(TestRuleA::new(0, ids[0])),
             Box::new(TestRuleB::new(1)),
             Box::new(TestRuleStop::new(2)),
-            Box::new(TestComRule::new(4, ids[2])),
             Box::new(SendReceiveRule::new(3, vec![ids[2]])),
+            Box::new(TestComRule::new(4, ids[2])),
+            Box::new(TestRuleC::new(5)),
         ]
     );
 
@@ -99,4 +100,8 @@ pub fn basics() {
     let res = t_handle.join().unwrap().ok();
     assert!(res.is_some());
     assert!(got_obj.is_ok());
+    let got_obj_gene = got_obj.unwrap();
+    let got_a = got_obj_gene.as_any().downcast_ref::<TestObjA>();
+    assert!(got_a.is_some());
+    assert_eq!(got_a.unwrap().get_inner(),  555.555);
 }
