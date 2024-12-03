@@ -1,9 +1,9 @@
-
+// Copyright 2024 Junshuang Hu
 use std::thread;
 
 use meme::{core::IMem, helpers, mems::basic::BasicMem, objs::com::{ObjChannel, SendMsg, SendWrapper}, rules::{com::SendReceiveRule, BasicCondition, BasicEffect}};
 use meme_derive::*;
-use crate::{objs::{TestObjA, TestObjB}, rules::{TestRuleA, TestRuleB, TestRuleC}};
+use crate::{objs::{TestObjA, TestObjB}, rules::{TestRuleA, TestRuleB, TestRuleC, TestRuleD}};
 
 #[derive(IObj, Debug)]
 pub struct StopObj {
@@ -67,7 +67,8 @@ impl TestComRule {
                     let pobj = Box::new(SendMsg::<i32>::new(helpers::IdGen::next_i32_id(), v));
                     pobj
                 })
-                .crate_obj(|_| Box::new(StopObj { tag: helpers::IdGen::next_i32_id() }))
+                //.crate_obj(|_| Box::new(StopObj { tag: helpers::IdGen::next_i32_id() }))
+                .increase_untagged::<StopObj>(1)
                 .build(),
         }
     }
@@ -92,6 +93,7 @@ pub fn basics() {
             Box::new(SendReceiveRule::new(3, vec![ids[2]])),
             Box::new(TestComRule::new(4, ids[2])),
             Box::new(TestRuleC::new(5)),
+            Box::new(TestRuleD::new(6))
         ]
     );
 

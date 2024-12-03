@@ -107,6 +107,10 @@ pub trait IObjStat<Unit: Scalar> {
     fn amount_of(&self, ty: &ObjType) -> Option<Unit>;
     fn amount_of_many(&self, tys: &[ObjType]) -> Vec<&Unit>;
 
+    fn amounts_u(&self) -> impl Iterator<Item = &Unit>;
+    fn amount_of_u(&self, ty: &ObjType) -> Option<Unit>;
+    fn amount_of_many_u(&self, tys: &[ObjType]) -> Vec<&Unit>;
+
     // /// 该方法用于表示是否存在对象的更改  
     // /// 如果对象被更改（或可能更改）则返回 true，否之返回 false  
     // /// 使用 [`IObjStat::dismiss()`] 来确认已处理更改，使该方法返回 false
@@ -142,9 +146,10 @@ pub trait IRuleEffect {
 /// 规则执行，这些对象能且仅能被执行的规则修改  
 /// 只记录 Untagged 的需求量，tagged 对象需要即时计算  
 pub trait ICondition<Tag: Clone + Hash + Eq, Unit: Scalar>: Clone {
-    fn from_builder(uts: Option<UntaggedPresences<Unit>>, tgs: Option<TaggedPresences<Tag>>) -> Self;
+    fn from_builder(uts: Option<UntaggedPresences<Unit>>, tgs: Option<TaggedPresences<Tag>>, skip_take: bool) -> Self;
     fn untagged(&self) -> &Option<UntaggedPresences<Unit>>;
     fn tagged(&self) -> &Option<TaggedPresences<Tag>>;
+    fn skip_take(&self) -> bool;
 }
 
 
@@ -246,7 +251,8 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                     let einfo = ExecutableInfo { 
                         rule_index: i, 
                         rand_tags: choosed_each,
-                        requested_tag: RequestTyped::new_opt(tag_set, tag_rand)
+                        requested_tag: RequestTyped::new_opt(tag_set, tag_rand),
+                        skip_take: c.skip_take()
                     };
                     let mut tag_confli = false;
                     if c.tagged().is_some() {
@@ -392,7 +398,8 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                     let einfo = ExecutableInfo { 
                         rule_index: i, 
                         rand_tags: choosed_each,
-                        requested_tag: RequestTyped::new_opt(tag_set, tag_rand)
+                        requested_tag: RequestTyped::new_opt(tag_set, tag_rand),
+                        skip_take: c.skip_take()
                     };
                     Some(einfo)
                 } else {
@@ -468,7 +475,8 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                     let einfo = ExecutableInfo { 
                         rule_index: i, 
                         rand_tags: choosed_each,
-                        requested_tag: RequestTyped::new_opt(tag_set, tag_rand)
+                        requested_tag: RequestTyped::new_opt(tag_set, tag_rand),
+                        skip_take: c.skip_take()
                     };
                     let mut tag_confli = false;
                     if c.tagged().is_some() {
@@ -542,7 +550,8 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
                     let einfo = ExecutableInfo { 
                         rule_index: i, 
                         rand_tags: None,
-                        requested_tag: None
+                        requested_tag: None,
+                        skip_take: c.skip_take()
                     };
                     Some(Some(einfo))
                 } else {
@@ -606,7 +615,13 @@ where OT: Clone + Hash + Eq, U: Scalar, C: ICondition<OT, U> {
         let mut rng = rand::thread_rng();
 
         let mut rinfo = rules_info.unwrap_or({
-            let mut tmp = (0..self.conditions_count()).map(|i| ExecutableInfo { rule_index: i, rand_tags: None, requested_tag: None })
+            let mut tmp = (0..self.conditions_count())
+            .map(|i| ExecutableInfo {
+                    rule_index: i, 
+                    rand_tags: None,
+                    requested_tag: None,
+                    skip_take: false
+                })
             .collect::<VecDeque<_>>();
             tmp.make_contiguous().shuffle(&mut rng);
             tmp
@@ -688,9 +703,17 @@ pub trait IMem: IObj {
             Err(MemError::new("Mem start failed."))
         }
     }
+    fn run(&mut self) -> EmuStatus {
+        loop {
+            let loop_state = self.evolve();
+            if loop_state != EmuStatus::Continue {
+                return loop_state;
+            }
+        }
+    }
 
     fn ready(&self) -> bool;
-    fn run(&mut self) -> EmuStatus;
+    fn evolve(&mut self) -> EmuStatus;
 }
 
 pub trait EffectHandler<Effect> {
@@ -725,9 +748,10 @@ OT: Send + Sync, U: Send + Sync {
     Stop
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum EmuStatus {
     Pause,
+    Continue,
     Stopped,
     EmuError
 }
@@ -787,6 +811,10 @@ impl PartialEq for ObjType {
 impl ObjType {
     pub fn new<T: IObj + ?Sized + 'static>(group: &'static TypeGroup) ->Self {
         Self { group, tid: TypeId::of::<T>() }
+    }
+
+    pub fn default_group<T: IObj + ?Sized + 'static>() -> Self {
+        Self { group: &crate::core::DEFAULT_GROUP, tid: TypeId::of::<T>() }
     }
 }
 
@@ -898,7 +926,8 @@ where K: Hash + Eq + Clone, V: Send + Sync {
 pub struct ExecutableInfo<T> {
     pub rule_index: usize,
     pub rand_tags: Option<Qvec<T>>,
-    pub requested_tag: Option<RequestTyped<T>>
+    pub requested_tag: Option<RequestTyped<T>>,
+    pub skip_take: bool
 }
 
 #[derive(Debug)]

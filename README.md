@@ -1,3 +1,11 @@
+Start:
+
+- install rustup
+- install rust-toolchains
+- cargo install cargo-make
+- cargo install clippy
+- cargo install flamegraph
+
 
 并行化所用的库：
 CPU并行：Rayon

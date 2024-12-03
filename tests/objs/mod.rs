@@ -1,4 +1,4 @@
-
+// Copyright 2024 Junshuang Hu
 use std::any::TypeId;
 
 use meme::core::{IObjStat, ITaggedStore, TypeGroup};

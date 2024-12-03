@@ -1,3 +1,4 @@
+// Copyright 2024 Junshuang Hu
 use meme::{core::{IObj, IRuleStat, ITaggedStore}, helpers, objs::BasicObjStore, rules::{BasicCondition, BasicEffect, BasicRuleStore}};
 use meme_derive::{IObj, IRule};
 
@@ -86,6 +87,42 @@ impl TestRuleC {
 
             eff: helpers::effect_builder()
             .crate_obj(|_| Box::new(TestObjC::new(helpers::IdGen::next_i32_id())))
+            .build(),
+        }
+    }
+}
+
+
+#[derive(IObj, IRule, Debug)]
+pub struct TestRuleD {
+    #[tag]
+    t: u32,
+    #[condition]
+    cond: BasicCondition<i32>,
+    #[effect]
+    eff: BasicEffect<i32>
+}
+
+impl TestRuleD {
+    pub fn new(tag: u32) -> Self {
+        Self {
+            t: tag,
+
+            cond: helpers::condition_builder()
+            .rand_tagged::<TestObjC>(1).by_take()
+            .build(),
+
+            eff: helpers::effect_builder()
+            .crate_obj(|req| {
+                assert!(req.take.is_some());
+                if let Some(took) = req.take.as_mut().and_then(|t|t.rand_at_mut(0)) {
+                    assert!(took.len() == 1);
+                    if took.len() != 0 {
+                        return took.pop().unwrap();
+                    }
+                }
+                return Box::new(TestObjC::new(helpers::IdGen::next_i32_id()));
+            })
             .build(),
         }
     }

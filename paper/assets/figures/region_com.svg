@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<svg width="400" height="200" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg" xmlns:se="http://svg-edit.googlecode.com">
+ <g class="layer">
+  <title>Layer 1</title>
+  <polyline fill="none" id="conn_svg_1" marker-end="url(#mkr_end_conn_svg_1)" marker-start="url(#mkr_start_conn_svg_1)" points="167.57 98.3953 200.32 98.355 233.07 98.3147" se:connector="svg_115 svg_2" stroke="#000000" stroke-width="2"/>
+  <path d="m11.57,67.34c0,-5.08 5.71,-9.35 12.5,-9.35l125,0c6.79,0 12.5,4.27 12.5,9.35l0,62.31c0,5.08 -5.71,9.35 -12.5,9.35l-125,0c-6.79,0 -12.5,-4.27 -12.5,-9.35l0,-62.31z" fill="#fff" id="svg_115" opacity="undefined" stroke="#000" stroke-width="2" transform="matrix(1 0 0 1 0 0)"/>
+  <path d="m239.07,67.06c0,-5.08 5.71,-9.35 12.5,-9.35l125,0c6.79,0 12.5,4.27 12.5,9.35l0,62.31c0,5.08 -5.71,9.35 -12.5,9.35l-125,0c-6.79,0 -12.5,-4.27 -12.5,-9.35l0,-62.31z" fill="#fff" id="svg_2" opacity="undefined" stroke="#000" stroke-width="2"/>
+ </g>
+ <defs>
+  <marker id="mkr_start_conn_svg_1" markerHeight="5" markerUnits="strokeWidth" markerWidth="5" orient="auto" refX="50" refY="50" se_type="leftarrow" viewBox="0 0 100 100">
+   <path d="m0,50l100,40l-30,-40l30,-40l-100,40z" fill="#000000" id="svg_1" stroke="#000000" stroke-width="10"/>
+  </marker>
+  <marker id="mkr_end_conn_svg_1" markerHeight="5" markerUnits="strokeWidth" markerWidth="5" orient="auto" refX="50" refY="50" se_type="rightarrow" viewBox="0 0 100 100">
+   <path d="m100,50l-100,40l30,-40l-30,-40l100,40z" fill="#000000" id="svg_3" stroke="#000000" stroke-width="10"/>
+  </marker>
+ </defs>
+</svg>

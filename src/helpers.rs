@@ -62,6 +62,18 @@ where T: Send + Sync, U: Send + Sync {
         self
     }
 
+    pub fn increase_untagged<O: IObj +'static>(mut self, amount: U) -> Self {
+        let e = self.effs.get_or_insert(Vec::new());
+        e.push(OperationEffect::IncreaseObjUntagged((ObjType::default_group::<O>(), amount)));
+        self
+    }
+
+    pub fn decrease_untagged<O: IObj +'static>(mut self, amount: U) -> Self {
+        let e = self.effs.get_or_insert(Vec::new());
+        e.push(OperationEffect::DecreaseObjUntagged((ObjType::default_group::<O>(), amount)));
+        self
+    }
+
     pub fn stop_mem(mut self) -> Self {
         let e = self.effs.get_or_insert(Vec::new());
         e.push(OperationEffect::Stop);
@@ -81,7 +93,8 @@ pub struct ConditionBuilder<T = u32, U = u32>
 where T: Clone + Hash + Eq, U: Scalar{
     of_type: Option<UntaggedPresences<U>>,
     of_tag: Option<TaggedPresences<T>>,
-    last_added_is_otg: bool
+    last_added_is_otg: bool,
+    skip_take: bool
 }
 
 impl<T: Clone + Hash + Eq, U: Scalar> Default for ConditionBuilder<T, U> {
@@ -95,14 +108,15 @@ impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
         Self {
             of_type: None,
             of_tag: None,
-            last_added_is_otg: false
+            last_added_is_otg: false,
+            skip_take: true
         }
     }
     
     pub fn some_untagged<Obj: IObj + ?Sized + 'static>(mut self, amount: U) -> Self {
         let oty = self.of_type.get_or_insert(Vec::new());
         oty.push(UntaggedPresence {
-            ty: ObjType::new::<Obj>(&crate::core::DEFAULT_GROUP),
+            ty: ObjType::default_group::<Obj>(),
             amount,
             take: false
         });
@@ -150,7 +164,7 @@ impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
     /// ```
     pub fn rand_tagged<Obj: IObj + 'static>(mut self, count: usize) -> Self {
         let otg = self.of_tag.get_or_insert(Vec::new());
-        otg.push(TaggedPresence::rand_tags((ObjType::new::<Obj>(&crate::core::DEFAULT_GROUP), count), UseBy::None));
+        otg.push(TaggedPresence::rand_tags((ObjType::default_group::<Obj>(), count), UseBy::None));
         self.last_added_is_otg = true;
         self
     }
@@ -162,10 +176,11 @@ impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
 
     pub fn by_take(mut self) -> Self {
         if self.last_added_is_otg {
-            self.set_last_tagged(UseBy::Tag);
+            self.set_last_tagged(UseBy::Take);
         } else {
             self.set_last_untagged(true);
         }
+        self.skip_take = false;
         self
     }
 
@@ -184,7 +199,7 @@ impl<T: Clone + Hash + Eq, U: Scalar> ConditionBuilder<T, U> {
     }
 
     pub fn build<C: ICondition<T, U>>(&mut self) -> C {
-        C::from_builder(self.of_type.take(), self.of_tag.take())
+        C::from_builder(self.of_type.take(), self.of_tag.take(), self.skip_take)
     }
 
     fn set_last_tagged(&mut self, use_by_new: UseBy) {
@@ -215,7 +230,7 @@ where T: Clone + Hash + Eq, U: Scalar {
 #[inline]
 pub fn condition_empty<T, U, C>() -> C 
 where T: Clone + Hash + Eq, U: Scalar, C: ICondition<T, U> {
-    C::from_builder(None, None)
+    C::from_builder(None, None, true)
 }
 
 /// 获取影响构造器
@@ -345,7 +360,6 @@ pub fn gpu_buffer_zeros<T: krnl::scalar::Scalar>(size: usize) -> Option<BufferBa
 /// assert!(v.is_empty());
 /// assert_eq!(res_another, vec![Some(1), Some(3), Some(4)]);
 /// ```
-#[inline]
 #[allow(unused_assignments)]
 pub fn vec_batch_remove<T>(v: &mut Vec<T>, indexes: &[usize]) -> Vec<Option<T>> { // todo: 改为快排
     let mut disp = vec![(false, 0); v.len()];

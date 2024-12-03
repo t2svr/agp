@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<svg width="669" height="218" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg" xmlns:se="http://svg-edit.googlecode.com">
+ <g class="layer">
+  <title>Layer 1</title>
+  <polyline fill="none" id="conn_svg_20" marker-end="url(#mkr_end_conn_svg_20)" points="614.15 152.99 614.15 116.49 614.15 79.99" se:connector="svg_5 svg_19" stroke="#000000" stroke-width="2"/>
+  <rect fill="#aaffaa" height="45.65" id="svg_1" stroke="#000000" width="545.87" x="0.51" y="172.46"/>
+  <rect fill="#ffd4aa" height="49.13" id="svg_6" stroke="#000000" width="546.3" x="0.73" y="0"/>
+  <rect fill="#ffff00" height="47.39" id="svg_7" stroke="#000000" width="235.65" x="0.44" y="115.22"/>
+  <rect fill="#ffff00" height="47.39" id="svg_8" stroke="#000000" width="113.91" x="0" y="59.57"/>
+  <text fill="#000000" font-family="Serif" font-size="24" id="svg_9" stroke="#000000" stroke-width="0" text-anchor="middle" transform="matrix(1 0 0 1 0 0)" x="274.83" xml:space="preserve" y="203.53">IObj</text>
+  <text fill="#000000" font-family="Serif" font-size="24" id="svg_10" stroke="#000000" stroke-width="0" text-anchor="middle" transform="matrix(1 0 0 1 0 0)" x="98.92" xml:space="preserve" y="148.33">IRule</text>
+  <text fill="#000000" font-family="Serif" font-size="21" id="svg_11" stroke="#000000" stroke-width="0" text-anchor="middle" transform="matrix(1 0 0 1 0 0)" x="57.19" xml:space="preserve" y="91.81">IRuleStore</text>
+  <rect fill="#ffff00" height="47.39" id="svg_13" stroke="#000000" width="113.91" x="122.39" y="59.57">I0RuleStat</rect>
+  <text fill="#000000" font-family="Serif" font-size="22" id="svg_12" stroke="#000000" stroke-width="0" text-anchor="middle" transform="matrix(1 0 0 1 0 0)" x="179.58" xml:space="preserve" y="91.8">IRuleStat</text>
+  <rect fill="#aaffaa" height="101.3" id="svg_17" stroke="#000000" width="113.91" x="250.62" y="60"/>
+  <text fill="#000000" font-family="Serif" font-size="24" id="svg_16" stroke="#000000" stroke-width="0" text-anchor="middle" transform="matrix(1 0 0 1 0 0)" x="307.37" xml:space="preserve" y="117.46">IObjStore</text>
+  <rect fill="#aaffaa" height="100.87" id="svg_15" stroke="#000000" width="113.91" x="376.49" y="60">I0RuleStat</rect>
+  <text fill="#000000" font-family="Serif" font-size="24" id="svg_14" stroke="#000000" stroke-width="0" text-anchor="middle" transform="matrix(1 0 0 1 0 0)" x="433.67" xml:space="preserve" y="117.02">IObjStat</text>
+  <text fill="#000000" font-family="Serif" font-size="24" id="svg_18" stroke="#000000" stroke-width="0" text-anchor="middle" transform="matrix(1 0 0 1 0 0)" x="277.73" xml:space="preserve" y="32.24">IMem</text>
+  <rect fill="#aaffaa" height="156.87" id="svg_2" stroke="#000000" width="42.91" x="503.53" y="60.89">I0RuleStat</rect>
+  <rect fill="#aaffaa" height="44" id="svg_3" stroke="#000000" stroke-width="0" width="42.91" x="502.15" y="173.49">I0RuleStat</rect>
+  <text fill="#000000" font-family="Serif" font-size="22" id="svg_5" stroke="#000000" stroke-width="0" text-anchor="middle" transform="matrix(1 0 0 1 0 0)" x="614.15" xml:space="preserve" y="171.99">dependency</text>
+  <text fill="#000000" font-family="Serif" font-size="22" id="svg_19" stroke="#000000" stroke-width="0" text-anchor="middle" transform="matrix(1 0 0 1 0 0)" x="614.15" xml:space="preserve" y="71.99">dependant</text>
+ </g>
+ <defs>
+  <marker id="mkr_end_conn_svg_20" markerHeight="5" markerUnits="strokeWidth" markerWidth="5" orient="auto" refX="50" refY="50" se_type="rightarrow" viewBox="0 0 100 100">
+   <path d="m100,50l-100,40l30,-40l-30,-40l100,40z" fill="#000000" id="svg_4" stroke="#000000" stroke-width="10"/>
+  </marker>
+ </defs>
+</svg>

@@ -84,6 +84,7 @@ DT: Debug + 'static {
 
 
 
+
 #[derive(IObj, Debug)]
 #[obj_type(TypeGroup::Com)]
 pub struct SChannel<T, U = u32, DT = T> 

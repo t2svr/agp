@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<svg width="399.99999999999994" height="300" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
+ <g class="layer">
+  <title>Layer 1</title>
+  <g id="svg_5">
+   <path d="m20,53.57c0,-16.3 13.7,-30 30,-30l300,0c16.3,0 30,13.7 30,30l0,200c0,16.3 -13.7,30 -30,30l-300,0c-16.3,0 -30,-13.7 -30,-30l0,-200z" fill="#fff" id="svg_115" opacity="undefined" stroke="#000" stroke-width="2"/>
+   <rect fill="#fff" height="60" id="svg_116" rx="24" stroke="#000" stroke-width="2" transform="matrix(1 0 0 1 0 0)" width="124" x="233" y="36.43"/>
+   <rect fill="#fff" height="60" id="svg_117" rx="24" stroke="#000" stroke-width="2" transform="matrix(1 0 0 1 0 0)" width="124" x="233.71" y="111.43"/>
+   <rect fill="#fff" height="60" id="svg_118" rx="24" stroke="#000" stroke-width="2" transform="matrix(1 0 0 1 0 0)" width="124" x="235.43" y="210.29"/>
+   <circle cx="268.33" cy="190.48" fill="#000000" id="svg_2" r="2.02" stroke="#000" stroke-width="2" transform="matrix(1 0 0 1 0 0)"/>
+   <circle cx="296.91" cy="190.35" fill="#000000" id="svg_3" r="2.02" stroke="#000" stroke-width="2" transform="matrix(1 0 0 1 0 0)"/>
+   <circle cx="322.63" cy="190.36" fill="#000000" id="svg_4" r="2.02" stroke="#000" stroke-width="2" transform="matrix(1 0 0 1 0 0)"/>
+  </g>
+ </g>
+</svg>

@@ -105,11 +105,10 @@ where T: Clone + Hash + Eq, U: Scalar {
     fn remove_batch_skip(&mut self, ts: &[T]) -> Vec<PObj<T, U>> {
         ts.iter()
         .filter_map(|t| self.instances.remove(t))
-        .map(|o| {
+        .inspect(|o| {
             if let Some(am) = self.amount.get_mut(&o.obj_type().tid) {
                 am.0 -= o.obj_amount();
             }
-            o
         })
         .collect()
     }
@@ -126,18 +125,22 @@ where T: Clone + Hash + Eq, U: Scalar {
 
 impl<T, U> IObjStat<U> for BasicObjStore<T, U>
 where T: Clone + Hash + Eq, U: Scalar {
-    fn amounts(&self) -> impl Iterator<Item = &U> {
-        self.amount.vals().map(|v| &v.0)
-    }
 
     fn tid_at(&self, pos: usize) -> Option<&TypeId> {
         self.amount.get_key(pos)
+    }
+
+    fn type_count(&self) -> usize {
+        self.amount.len()
     }
 
     fn pos_of(&self, ty: &crate::core::ObjType) -> Option<usize> {
         self.amount.index_of(&ty.tid)
     }
 
+    fn amounts(&self) -> impl Iterator<Item = &U> {
+        self.amount.vals().map(|v| &v.0)
+    }
     fn amount_of(&self, ty: &crate::core::ObjType) -> Option<U> {
         self.amount.get(&ty.tid).cloned().map(|v| v.0)
     }
@@ -146,8 +149,16 @@ where T: Clone + Hash + Eq, U: Scalar {
         tys.iter().filter_map(|ty| self.amount.get(&ty.tid).map(|v| &v.0)).collect()
     }
 
-    fn type_count(&self) -> usize {
-        self.amount.len()
+    fn amounts_u(&self) -> impl Iterator<Item = &U> {
+        self.amount.vals().map(|v| &v.1)
+    }
+    
+    fn amount_of_u(&self, ty: &crate::core::ObjType) -> Option<U> {
+        self.amount.get(&ty.tid).cloned().map(|v| v.1)
+    }
+    
+    fn amount_of_many_u(&self, tys: &[crate::core::ObjType]) -> Vec<&U> {
+        tys.iter().filter_map(|ty| self.amount.get(&ty.tid).map(|v| &v.1)).collect()
     }
 }
 
@@ -183,7 +194,7 @@ where T: Clone + Hash + Eq, U: Scalar {
             a.0 += amount;
             true
         } else {
-            self.amount.insert(ty.clone(), (amount, amount));
+            self.amount.insert(*ty, (amount, amount));
             false
         }
     }

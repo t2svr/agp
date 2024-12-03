@@ -44,16 +44,18 @@ where T: Send + Sync + Clone, U: Send + Sync + Clone {
 pub struct BasicCondition<T = u32, U = u32>
 where T: Clone + Hash + Eq, U: Scalar {
     untagged_cond: Option<UntaggedPresences<U>>,
-    tagged_cond: Option<TaggedPresences<T>>
+    tagged_cond: Option<TaggedPresences<T>>,
+    skip_take: bool
 }
 
 impl<T, U> ICondition<T, U> for BasicCondition<T, U>
 where T: Clone + Hash + Eq, U: Scalar {
         
-    fn from_builder(uts: Option<UntaggedPresences<U>>, tgs: Option<TaggedPresences<T>>) -> Self {
+    fn from_builder(uts: Option<UntaggedPresences<U>>, tgs: Option<TaggedPresences<T>>, skip_take: bool) -> Self {
         Self {
             untagged_cond: uts,
             tagged_cond: tgs,
+            skip_take
         }
     }
     
@@ -63,6 +65,10 @@ where T: Clone + Hash + Eq, U: Scalar {
     
     fn tagged(&self) -> &Option<TaggedPresences<T>> {
         &self.tagged_cond
+    }
+    
+    fn skip_take(&self) -> bool {
+        self.skip_take
     }
 
 }

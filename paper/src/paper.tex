@@ -1,0 +1,624 @@
+% Copyright 2024 Junshuang Hu
+\documentclass[9pt,a4paper,twoside]{article}
+\usepackage{geometry}
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{svg}
+\usepackage{tabularx}
+\usepackage{booktabs} 
+
+\newcommand\figpath{../assets/figures/}
+
+\newcommand\putpic[3]{%
+  \put(#1\wd0,#2\ht0){#3}%
+}
+
+\newcommand\putonsvg[2] {%
+    \setbox 0 = \hbox{\includesvg{\figpath #1}}%
+    \begin{picture}(\wd0, \ht0)%
+        \put(0,0){\includesvg{\figpath #1}}%
+        #2%
+    \end{picture}%
+}
+
+\title{
+    Augmented general P systems and high efficiency emulation
+    \footnote{
+        This work is licensed under CC BY-SA 4.0. To view a copy of this license, visit 
+        https://creativecommons.org /licenses/by-sa/4.0/
+    }
+}
+
+\date{2024-11-11 Draft}
+\author{JunShuang Hu\footnote{llllIIIlIllIII@outlook.com}}
+
+\begin{document}
+    
+    \maketitle
+    \pagenumbering{arabic}
+    
+    \begin{abstract}
+        blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah 
+    \end{abstract}
+    \keywords{Membrane Computing, P Systems, Emulation}
+    
+    \section{Introduction}
+    
+        Based on behaviors of organism in the cell's level, a novel kinds of computing model was formulated. Separation of areas by membranes,
+        transportation of matters across membranes and biochemical reactions in membranes are the three important behaviors of cells. 
+        These behaviors are captured in symbolic way to crate P systems which transform those behaviors into basic elements for general computing.
+        
+        ...  
+        
+        blah
+        
+        blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah 
+
+         ...
+    
+    \section{Purpose of Research}
+        Since the very first definition of P system, numerous P systems are defined, some introduced new forms of objects and rules, 
+        some designed new representation of membrane. They expanded P system's application ares, enhanced P systems' computing ability.
+        
+        Nevertheless, the existing researches mostly focused on improving P systems, rather than the definition of P systems.
+    
+        This paper provided an augmented general way of define P systems with object expanding, object subdivision, rule polymorphism and cross system 
+        reusing. These methods makes it easier to design and define P systems in a more concise way, especial 
+        when abstracting from some complex biological behaviors. 
+        
+        Design of P systems needs verification, if the designed system is too complex, step-by-step verification manually could be 
+        frustrating, hence computer emulation of P system could be helpful in P system design verification. 
+    
+        Some P systems are build for current applications. In the help of P system's structural advantage, like other biology inspired 
+        systems, P systems implemented on modern silicon based computers could be powerful in certain application areas, thus having a emulation tool
+        will reduce the time and energy of implementing these systems. 
+        
+        The existing emulation tools and libraries are not high efficient or efficient but not general. 
+        This paper provided a novel membrane computing library which is efficient and general for implementing the emulator for varies kind of P systems.
+
+        blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah 
+
+         blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah 
+         
+          blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah 
+
+           blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah blah 
+        
+    \section{Augmented general P system}
+        This paper provided an augmented general way of define P systems with object expanding, object subdivision, rule polymorphism and cross system 
+        reusing. These methods makes it easier to design and define P systems in a more concise way, especial 
+
+        P systems defined in the augmented general way are called augmented general P systems.
+        \subsection{Objects}
+            Objects definition is in a more refined way in augmented general P system, such consideration is called object subdivision. We use untagged objects in
+            situations that rules only care about objects of some types, and use tagged objects when individual objects matters. This is under the inspiration of 
+            biochemical reactions of different types.
+        \subsubsection{Tagged Objects}
+        
+            In a augmented general P system tags are used to distinguish different objects of a certain type. 
+            A tagged object is defined as $o = (ty, tg)$ where $ty \in S_y, tg \in S_g$ and $S_y, S_g$ are sets of strings on alphabet $A_y, A_g$ separately. 
+            $ty$ denotes the type of this object and $tg$ is the tag for this object in its type.
+            
+            e.g. chromosome $o_1 = (\text{``Human Chromosome''}, 22)$ 
+            and $o_2 = (\text{``Human Chromosome''}, 1)$
+            \paragraph{Uniqueness of tagged objects}
+            
+                For two objects $o_1 = (ty_1, tg_1)$ and $o_2 = (ty_2, tg_2)$, we say $o_1$ and $o_2$ are the same object if and only if 
+                $ty_1 = ty_2$ and $tg_1 = tg_2$.
+            \paragraph{Objects of the same type}
+            
+                For two objects $o_1 = (ty_1, tg_1)$ and $o_2 = (ty_2, tg_2)$, we say $o_1$ and $o_2$ are of the same type if and only if 
+                $ty_1 = ty_2$.
+            \paragraph{Unique properties of tagged objects}
+            
+                Because every tagged objects are different, there could be some unique properties for a certain object that affect how rules could be 
+                applied, these properties can be used to simplify the design of rules which abstracted from behaviors like gene expression or protein functioning.
+                
+                The properties $p$ of object $o$ is defined as $p = Property(o)$, where $Property: O_t \rightarrow P$, $O_t$ is a set of tagged objects,
+                $P$ is the power set of the union of sets $S_1, S_2,...,S_n$, $S_1, S_2,...,S_n$ represent different kinds of properties .
+                
+                e.g. for
+                $o_1 = ($``protein''$, 1)$,
+                $o_2 = ($``protein''$, 2)$,
+                $Property(o_1) = \{$``has glycine''$,$``10 amino acids''$,42\}$,
+                $Property(o_2) = \{$``has leucine''$,$``20 amino acids''$,233\}$
+                
+                This allows to express almost anything related to a certain object further used by rules.
+                            
+        \subsubsection{Untagged Objects}
+                
+            Untagged objects are more like the original definition of objects in previous P systems.
+            Untagged objects are described as a type of objects, an untagged object is defined as $u = ty$ where $ty \in S_y$ and $S_y$ is a set of strings on alphabet $A_y$. 
+            
+            It is useful when designing rules for a type of objects like the rule from proteolysis in which case the differences of each protein are out of concern.
+            Untagged objects ignores the difference of objects of the same type. e.g. carbohydrate $u_1 = \text{``Galactose''}$ and $u_2 = \text{``Glucose''} $
+            \paragraph{Amount of untagged objects:}
+            
+                Let $Amount: O_u \rightarrow \mathbb{R}$ be the mapping of the amount of a untagged object from $O_u$.
+                Let $a_{ty} = Amount_\omega(ty)$ be the amount of object of type $ty$ in region $\omega$, where $\omega \in S$ and $Amount_\omega: S_y \rightarrow \mathbb{R}$, 
+                $S$ and $S_y$ are sets of strings. The following equation is always satisfied.
+                \begin{equation}
+                    \begin{align}
+                        a_{ty} &= Amount_\omega(ty) \\
+                        &= \sum_{o \in O'}{Amount(o)} \\
+                    \end{align}
+                \end{equation}
+                where $O' = \{ o_i = ty_i \mid o_i \in O_u, o_i\text{ is in region }\omega, ty_i = ty \} $. This is equivalent to the expression with multi-set of 
+                untagged objects in a region, where the multitude of each object is a real number which corresponding to the amount of objects in a region. 
+            
+            \paragraph{Untagged reference of tagged object}
+            
+                Let $Amount_t: O_t \rightarrow \mathbb{R}$ be the amount of a single tagged object in $O_t$, if not defined, $Amount_t(o) = 1$.
+                For tagged objects $o_1, o_2,...,o_n, n \in \mathbb{N}^+$ and $a_i = Amount_t(o_i)$, where $o_i = (ty, tg_i)$ and pair $p_i=(o_i, a_i)_{amount}$ 
+                of mapping $Amount_t$ satisfies $p_i \in Property(o_i)$ for $1 \leq i \leq n$.
+            
+                Let $a = \sum{a_i}$, the untagged reference of $o_1, o_2, ..., o_n$ is $u_r = ty$ with $Amount(u_r) = a$. $o_1, o_2, ..., o_n$ are called
+                the original objects of $u_r$. Note that the original objects of a untagged reference is not unique.
+            
+                Untagged objects are like small molecules while tagged objects are like macromolecules. Conditions with untagged objects usually correspond to the
+                statistical characteristics of small molecules, like concentration, while tagged objects are for reactions in molecule level, like gene expressions.
+                They represent real life objects in different scales, the untagged reference is a bridge between them, allows the same object to be used in different
+                scale. 
+            
+                Note that $Amount_t$ is not the ``amount of this tagged object'', rather, it is ``the amount the untagged object that this tagged object turned into''.
+                Due to the uniqueness of tagged objects, ``the amount of this tagged object'' should always be one across all regions.
+        
+    \subsection{Rules}
+    
+        A rule $r$ is in the form of $r: c \rightarrow e_c$, $c \in C_O$ is called the condition of $r$ and $e_c \in E_c$ is called the effect of $r$ under its
+        condition $c$, $C_O$ is a set of conditions on objects $O$ and $E_c$ is a set of effects under condition $c$.
+    
+        \paragraph{Tagged reference of rule}
+            
+            For a rule $r: c \rightarrow e_c$ in region $\omega$, it can be seen as a tagged object $o_r = (r, \omega)$ with $(c \rightarrow e_c) \in Property(o_r)$
+            or vice versa. $o_r$ is then called the tagged reference of $r$, and $r$ is called the original rule of $o_r$. When there's no confusion, $r$ and $o_r$
+            can share a same symbol.
+        
+            For clarity of expression, the variable parts of the rule's condition and effect should be written as variables along with the rule definition. Let
+            $a_1, a_2,..,a_n$($n \geq 1$) be the variable of rule $r$, $r$ is defined as $r(a_1, a_2,...,a_n): c \rightarrow e_c$.
+            Further, $a_i \in Property(o_r), 1 \leq i \leq n$
+        
+            Once rules are taken as objects, they can be modified by other rules, or itself, this brings more flexibility to the system. For example in a spiking neural  
+            P system with dynamic threshold, each time the fire rule has been applied, the threshold of the fire rule will be changed. Therefore the condition of firing
+            rule is not static, but its original definition implicitly used this concept. In augmented general P systems, this mutability must be used explicitly with
+            tagged references for a clear and unified expression.
+        
+        \subsubsection{Conditions}
+        
+            Let $C_u = \{(u, a) \mid u \in O_u \cup O_{ru}, a \in \mathbb{R}\}$ where $O_u$ is a set of untagged objects and $O_{ru}$ is a set untagged references.
+            Let $C_t = O_t \cup O_{rt}$ where $O_t$ is a set of tagged objects and $O_{rt}$ is a set tagged references.
+            The set of conditions on $O = O_t \cup O_u$ is $C = \{(c_t, c_u) \mid c_t \subseteq C_t, c_u \subseteq C_u\}$ 
+            where $O_t$ is a set of tagged objects and tagged references.
+        
+            \paragraph{Determined condition and non-determined condition}
+                Condition $c=(c_t, c_u)$ is a determined condition if and only if there is no untagged references in
+                $c_u$, else it is a non-determined condition.  
+                
+                A rule with non-determined condition requires the region to have a certain amount of tagged objects of some types, 
+                but the exact objects used for this rule is chosen in a non-determined way.
+                
+                e.g. 
+                $c_1 = (\{o_{t1}, o_{t2}\}, \{(u_1, 10.0), (u_2, 5.0)\})$ for tagged objects $o_{t1}, o_{t2}$ and untagged objects $u_1, u_2$,
+                or more realistically
+                $c = (\{ o_1=($``protein''$,$ $1)$ $,$ $ o_2=($``protein''$,$$ 2) \}$ $,$ $ \{(u_1=$``temperature'' $,$
+                $40)$ $,$ $ (u_2=$``pH''$,$$ 8.1)\})$.
+            
+        \subsubsection{Effects}
+                
+            The set of all effect under condition $c=(c_t, c_u)$ is $E_c = \{ f_c \mid f_c: P(O_c) \rightarrow P(I) \}$  where $P(O_c)$ is the power set of 
+            $O_c$, $O_c = \{o \mid o \in c_t \vee o \in c_u\}$. $P(I)$ is a power set of influences $I$. 
+        
+            Influences describe how a region acts under an effect, for the sack of generality, they are not strictly defined. 
+            Depends on the type of the membrane that defines the region, influences may be interpreted differently, this feature is called rule polymorphism. 
+            
+            Across all membranes, the following types of influences are always recognizable, namely, they are universal influences.
+            \paragraph{Universal influences}
+                A universal influence $i \in I_U$ is defined as $i = (op, (o,a))$, where $op \in \{\text{``Add''}$ $,$ $ \text{``Remove''}, \text{``Stop''}\}$$,$$ o \in O_t \cup O_u \cup \{\epsilon\}$,
+                $a \in \mathbb{R} \cup \{\epsilon\}$ is the amount of the object to be removed, $O_t$ is a set of tagged objects, and $O_u$ is a set of untagged objects, 
+                $\epsilon$ denotes no object or amount is required. 
+                
+                If $a = \epsilon$ then $i$ can be written as $i = (op, o)$, if $a = \epsilon$ and $o =\epsilon$,  $i$
+                can be written as $i=op$. 
+                \begin{itemize}
+                    \item ``Add'' insists the object $o$ to be added to the region $\omega$ where the rule is applied. 
+                        If $a \neq \epsilon$, 
+                            when $o$ is tagged, $Amount_t(o) = a$ is added to $Property(o)$, 
+                            when $o$ is untagged, $Amount_\omega(o) = a$ is added to region $\omega$. 
+                      
+                        If $o$ already exists in $\omega$,
+                            when $o$ is tagged, the existing object is replaced, for convenience, changes of properties of $o$ can be marked after
+                            its symbol as $o(p_1 = p_1', p_2 = p_2',..., p_n = p_n')$
+                            when $o$ is untagged, $a_{old} = Amount_\omega(o)$ is replaces by $a_{new} = a_{old} + a$.
+                                  
+                        For untagged object, $a$ can not be $\epsilon$. 
+                
+                    \item ``Remove'' insists the object $o$ to be removed in the region where the rule is applied, $o$ must be in the condition of the rule, $a$ is ignored.
+                    
+                    \item ``Stop'' insists the region where the rule is applied to stop evolving, $o$ must be $\epsilon$.
+                \end{itemize}
+                
+                e.g. for rule $r: c \rightarrow e_c$, $c = (\{ o_1=(\text{``protein''}, \text{'a'}) \}, \{(u_1=\text{``enzyme''}, 10)\})$, 
+                $e_c = \{ (\{o_1\}, \{(\text{``Remove''}, o_1)\})\} $
+            
+                An effect for a rule is a mapping over a subset of objects in the rule's condition to a set of influences.
+
+            \paragraph{Multi-Branch Effects and Single Branch Effects}
+            A multi-branch effect $e_c$ has a set of sets of influences ${is_1, is_2, ..., is_n}$, only one set of influences is applied each time, the set chosen is determined when $e_c$ is calculated. If only one set of influences exists, the effect is a single branch effect.
+                
+            \paragraph{Satisfaction of rules and applying rules}  
+                       
+                For a rule $r: c \rightarrow e_c$ in region $\omega$, $c = (c_t, c_u)$, we call this rule is satisfied in $\omega$ if and only if 
+                $\forall o_t \in c_t$ $,$ $ \forall (o_u, a_u) \in c_u$ $,$ $o_t \in O_{\omega}, o_u \in O_{\omega} \text{ and } Amount_\omega(o_u) \geq a_u$.
+                
+                If rule $r$ is satisfied in region $\omega$, then to apply $r$ in $\omega$ is to calculate the effect mapping $e_c$ to get influences $i$,
+                and region $r$ uses $i$ to update itself.
+                
+                If the condition of a rule is empty, then the rule is always satisfied. If the effect of a rule is empty, then the rule produces no influence.
+    
+        \subsubsection{Simplified rule notations}
+        
+            For rule $r(a_1,a_2,...a_n): c \rightarrow e_c$, where $c=(c_t, c_u)$, the simplified rule expression is:
+            \begin{equation}
+                \begin{align}
+                    &r(a_1,a_2,...a_n): \\
+                    &c_1 \rightarrow e_c(c_1)  \\
+                    &c_2 \rightarrow e_c(c_2)  \\
+                    &...\\
+                    &c_n \rightarrow e_c(c_n)  \\
+                \end{align}
+            \end{equation}
+            or in a single line
+            \begin{equation}
+                r(a_1,a_2,...a_n): c_1c_2...c_n \rightarrow e_c(c_1)e_c(c_2)...e_c(c_n)
+            \end{equation}
+            where
+            \begin{equation}
+                \bigcup_{k = 1}^{n}{c_k} = c_t \cup c_u, \bigcap_{k = 1}^{n}{c_k} = \emptyset
+            \end{equation}
+            
+            Then, $c_k = \{o_{k1},o_{k2},...,o_{kp}\} \cup \{(u_{k1},a_{k1}), (u_{k2},a_{k2}),..., (u_{kq},a_{kq})\}$ for $1 \leq k \leq n$ can be written as 
+            $o_{k1}o_{k2}...o_{kp}(u_{k1}, a_{k1})(u_{k2}, a_{k2})...(u_{kq}, a_{kq})$.
+            
+            The properties $p_1,p_2,...,p_l$ of object $o$ can be written in parentheses after the object symbol in both condition and effect as $o(p_1,p_2,...,p_l)$ if needed.
+
+            In all notations, if symbol '$,$' is not included in the alphabet of object or rule names, then it can be used to separate object or rules names, e.g. $o_1,o_2,o_3$ and $r_1,r_2,r_3$. 
+            
+            Symbol $\epsilon$ is used to denote no condition or effect required. 
+
+            \paragraph{When using universal influences}
+            If $i_k = e_c(c_k)$ are universal influences $\{ (op_1,$ $ (o_1,a_1)),$ $ (op_2, (o_2,a_2))$ $,...,$ $(op_m, (o_m,a_m))  \}$, 
+            $i_k$ can be written as $op_1$ $(o_1, a_1)$ $op_2$ $(o_2, a_2)...$ $op_m(o_m, a_m)$, or in the following way:
+            \begin{itemize}
+                \item If $op_i$ is Add$(o)$, write as $o$.
+                \item If $op_i$ is Remove$(o)$, write nothing.
+                \item For any object $o$ in the condition $c_k$, if Remove$(o) \notin i_k$, write as $o$.
+                \item If there are two untagged objects $(ty_1, a_1)$ and $(ty_2, a_2)$ in the simplified effect with $ty_1 = ty_2$, write as $(ty_1, a_1 + a_2)$.
+            \end{itemize}
+
+            \paragraph{When using property matching effect with two branches}
+             For a rule $r: c \rightarrow e_c$, $c=c_t \cup c_u$, if $e_c$ is a multi-branch effect in the following form:
+            \begin{equation}
+                e_c=\left\{
+                \begin{align}
+                    & i, \forall o_i \in c_t, p_i \subseteq Property(o_i)\\
+                    & \epsilon, otherwise
+                \end{align}
+                \right
+            \end{equation}
+            where $p_i$ and $1 \leq i \leq n$ is the properties required by effect to take place, then the rule can be simply written as
+            \begin{equation}
+                 r: c_uo_1(p_1)o_2(p_2)...o_n(p_n) \rightarrow i
+            \end{equation}
+
+            e.g. 
+            \begin{equation}
+                \begin{align}
+                    &r_1: \\
+                    &o_1o_2(u_1, 10) \rightarrow \text{Remove}(o_1)\text{Add}(u_1, 5)  \\
+                    &o_3 \rightarrow \text{Add}(o_5) \\
+                    &o_4 \rightarrow \text{Remove}(o_4)\text{Add}(o_4(some,new,props)) \\
+                    &(u_2, 20) \rightarrow \epsilon \\
+                \end{align}
+            \end{equation}
+            or
+             \begin{equation}
+                \begin{align}
+                    &r_1: \\
+                    &o_1o_2(u_1, 10) \rightarrow o_2(u_1, 15)  \\
+                    &o_3 \rightarrow o_3o_5 \\
+                    &o_4(with,old,props) \rightarrow o_4(some,new,props) \\
+                    &(u_2, 20) \rightarrow (u_2, 20) \\
+                \end{align}
+            \end{equation}
+            or
+            \begin{equation}
+                \begin{align}
+                    &r_2(a): \\
+                    &(u_1, a) \rightarrow \text{Remove}(u_1) \\
+                    &r_2(a_{old}) \rightarrow \text{Add}(r_2(a = a_{old} + 1))
+                \end{align}
+            \end{equation}
+            or
+            \begin{equation}
+                \begin{align}
+                    r_3: o_1,o_2,(u_1, 60) \rightarrow \text{Add}(o_3)\text{Remove}(o_2)
+                \end{align}
+            \end{equation}
+            or
+            \begin{equation}
+                \begin{align}
+                    r_4:\epsilon \rightarrow \text{Add}(o_1)\text{Add}(u_1, 1.1)
+                \end{align}
+            \end{equation}
+
+        
+        \subsection{Membranes}
+        
+            In augmented general P systems, a membrane $m$ is defined as $m=(\omega, O_s, R_s, F)$ where $F = (Check^*, Apply^*, Deref_u^*, Deref_t^*, Evolve)$ is the feature tuple of $m$ (or feature for short), $\omega$ is the region defined by $m$, $O_s$ and $R_s$ are objects and rules in $m$.
+            Let $O = O_t \cup O_u \cup O_{rt} \cup O_{ru}$ be the set of all possible objects, let $R$ be the set of all possible rules and let $I$ be the set
+            of all recognizable influences.
+
+            \paragraph{Difference between membrane and region}
+            Region $\omega$ is an area that surrounded by a membrane, everything in the area including sub-regions are inside of the region, while membrane of region $\omega$, or simply membrane $\omega$, only refers to the features, objects and rules of the region excluding its sub-regions.
+            \paragraph*{}
+            
+            Different types of membranes may have different behaviors or strategies and corresponding to the different feature tuples. Feature tuple decides how a region under a specific membrane should evolve, 
+            behaviors of a membrane is abstracted into the following mappings.
+        
+        
+            \begin{itemize}
+                \item  $Check: (R, P(O)) \rightarrow \{yes, no\}$ is a mapping a rule and a set of objects to a result of $yes$ or $no$, representing the
+                the membrane's logic of decide whether a rule can be applied or not on a set of existing objects in a region.
+                
+                \item  $Apply: (I, P(O)) \rightarrow P(O)$ is a mapping from an influence and a set of objects to a set of updated objects,
+                it represents the rule's logic on handling an influence on a set of objects.
+        
+                \item $Deref_u: (O_{ru}, \mathbb{R}) \rightarrow P(O_t)$ represents the logic of the membrane on decide the original objects of a untagged reference
+                of a certain amount. 
+                
+                \item $Deref_t: O_{rt} \rightarrow R$, represents the logic of the membrane on decide the original rule of a tagged reference.
+        
+                \item $Evolve: (P(O), P(R)) \rightarrow (P(O), P(R))$ defines how this membrane is evolving in each iteration.
+        
+            \end{itemize}
+        
+                For a feature tuple, only $Evolve$ mapping is required, other mappings are optional and marked with ``$*$''.
+                When processing influences, the following two actions can be done automatically.
+                
+            \begin{itemize}
+                \item Before the effect calculation, if an object is a untagged reference, it will be mapped into tagged objects with $Deref_u$ with the same amount.
+                \item After $Apply$ mapping, if an object is a tagged reference, it will be mapped into a rule with $Deref_t$, and the corresponding rule is added or removed. 
+            \end{itemize}
+        
+            Note that in a augmented general P system, there could be different kinds of membranes existing and collaborating in the same time, to let a P system that use other P systems as subsystems to be defined. Cross system reusing is used to achieve this.
+
+            \paragraph{Single P systems and Composite P systems}
+            A P system with one type of membrane (i.e. one feature set) or no membrane is a single P system, otherwise it is a composite P systems. A composite P system can be seen as a combination of many single P systems which are called its subsystems.
+        
+            \subsubsection{Default scheme of $Evolve$}
+                Mapping $Evolve$ can be defined in any form depending on the requirement of the specific system. Default scheme of $Evolve$ gives an optional default structure for systems that build upon augmented general P system, as showing in table 1.
+                \begin{table}[!htbp]
+                    \centering
+                    \begin{tabularx}{\textwidth}{lX}
+                        \toprule
+                        Step & Actions \\ 
+                        \midrule
+                        0    & Let input be $O_s$ and $R_s$.\\
+                        1    & For every rule $r\in R_s$, get the set of all satisfied rules $R_a=\{r \mid Check(r, O_s) = yes \}$, where $O_s = O_{st} \cup O_{su}$ \\
+                        2    & For each $r: c \rightarrow e_c, r \in R_a$, use the simple deadlock avoid algorithm in Table 2 to get the parallel satisfied rule set $R_{ap}$.\\
+                        3    & For all untagged references and amount $(o_{ru}, a)$ in the conditions of rule $r$ in $R_{ap}$, let $O_{du,r} = Deref_u(o_{ru}, a)$.\\
+                        4    & Apply each rule $r$ in $R_{ap}$ in parallel to get the set of influences $I_r$.\\
+                        5    & Crate a empty set of objects $O_p = O_{pt} \cup O_{pu}$.\\
+                        6    & Let set $O_d = O_t \cup O_u$ , where $O_t = O_{st} - O_{pt}$ and $O_u = \{(ty,a)\mid a = a' - a'' $ for $ (ty, a') \in O_{su} $ and $ (ty, a'') in O_{pu} \}$.\\
+                        7    & For every rule $r_d, r_d \in R_a \vee r\notin R_{ap}$, if $Check(r, O_d) = yes$, get $O_{du,r_d}$ as in Step 3 and add get its influences $I_{r_d}$, then add objects in its condition to $O_p$.\\
+                        8    & Repeat Step 6 and Step 7 until all rules are tested.\\
+                        9    & For $I_r$ of rule $r$, for each $i \in I_r$ let $O_n = Apply(i, O_s \cup O_r \cup O_{du,r})$, where $O_r$ is the set of tagged references on $R_s$.\\
+                        10   & Let $O_n = O_{no} \cup O_{nr}$ where $O_{no}=\{ o \mid o \text{ is not a reference }\}$ and $O_{nr}=\{ o \mid o \text{ is a reference }\}$. Get $R_n=\{r \mid r = Deref_t(o), o \in O_{nr}\}$, then let $O_s = O_{no}$ and $R_s = R_n$.\\
+                        11   & Repeat Step 9 and Step 10 until all influences are processed. The Updated $O_s$ and $R_s$ are output.\\
+                        \bottomrule
+                    \end{tabularx}
+                    \caption{Default $Evolve$ mapping}
+                    \label{tab:evolve}
+                \end{table}
+
+                \begin{table}[!htbp]
+                    \centering
+                    \begin{tabularx}{\textwidth}{lX}
+                        \toprule
+                        Step & Actions \\ 
+                        \midrule
+                        1    &  Build a request matrix from the condition of rules in $R_a$ with each requested count is amount for untagged object and one for tagged object.\\
+                        2    &  maintain a resource matrix which is sync to the objects in the region.\\
+                        3    &  compare request matrix with the resource matrix, find all rules that does not need objects more than the existed. \\
+                        \bottomrule
+                    \end{tabularx}
+                    \caption{Simple deadlock avoid algorithm}
+                    \label{tab:deadlock}
+                \end{table}
+            
+            \subsubsection{Simplified region notations}
+                A region $\omega$ defined by membrane $m=(\omega, O_s, R_s, F)$ can be written as the 
+                following string representation if needed.
+                \begin{equation}
+                    \omega: [ o_1o_2...o_n \mid r_1r_2...r_m \mid Sub_1Sub_2...Sub_k ]_F
+                \end{equation}
+                where $O_s = \{ o_1, o_2,...,o_n \}$ and $R_s = \{r_1,r_2,...,r_m\}$, ``$[$ $]_F$'' represents the membrane that defines this region with feature $F$, $Sub_i$,$0 \leq i \leq k$ is regions inside of $\omega$, defined recursively. $n,m,k \in \mathbb{N}$. Regions also have a graph representation, as in figure 1.
+                \begin{figure}[!htbp]
+                    \centering
+                    \putonsvg{region.svg}{
+                        \putpic{.2}{.6}{\Large$o_1o_2...o_n$}
+                        \putpic{.2}{.4}{\Large$r_1r_2...r_m$}
+                        \putpic{.7}{.82}{\large$Sub_1$}
+                        \putpic{.7}{.54}{\large$Sub_2$}
+                        \putpic{.7}{.15}{\large$Sub_k$}
+                        \putpic{.1}{.1}{\Large$F$}
+                        \putpic{.1}{.9}{\Large$\omega$}
+                    }
+                    \caption{Graph representation of a region}
+                    \label{fig:fig1}
+                \end{figure}
+
+        \subsection{Cross system reusing}
+            Typically, a P system can be defined with only one type of membrane, different membranes of the same type are relatively easy to collaborate since they shared the same definition.
+    
+            A composite augmented general P system includes different kinds of membranes, these membranes are different in their features. When these membranes are collaborating and evolving together, a set of principles must be followed for them to share information, i.e. objects.
+    
+            Augmented general P system uses a concept called cross system reusing to deal with the collaboration of different types of membranes. 
+    
+            For two single P system $P_1$ and $P_2$, $O_1$ is a set of all possible objects in $P_1$, and $O_2$ is a set of all possible objects in $P_2$, $O_c = O_1 \cap O_2$ is called the cross system objects on $P_1$ and $P_2$. A rule $r: c \rightarrow e_c$, $r$ is a cross system rule on $P_1$ and $P_2$ if and only if $c \subseteq O_c$ and $I = dom(e_c)$ is a set of universal influences.
+    
+            Aside from the collaboration of different types of membranes, cross system objects and rules can be used for the definition of novel P systems with objects and rules that wildly exists. In biological cells, some reactions can take place in almost every cell, one typical example is the hydrolysis of adenosine triphosphate (ATP), rules and corresponding objects can be designed for membranes that utilize this reaction.
+        
+        \subsubsection{Cross system communication}
+            With cross system reusing, augmented general P system employments a way of sending objects across different types of membranes without relay on the features of membranes.
+
+            Cross system communication is based on the following objects and rules:
+            \begin{itemize}
+                \item Channel Objects: channel objects $ch_a, ch_b$ are paired objects representing a bidirectional channel of any form. When in a same region, carrier Objects can enter $ch_a$, and been transported to the region where $ch_b$ belongs to, or vice versa.
+                \item Carrier Objects: carrier Objects are objects that can carry objects withing their property and been transported from one side of the channel to the other. Property of a carrier object $ca$ is in the form of $Property(ca)=\{ ch, o\}$, where $ch$ is the channel object that this carrier will enter and $o$ is the object it carries.
+                \item Send Rule: a send rule is $r_s: ch_1ch_2...ch_nca \rightarrow e_s$, $ch_1ch_2...ch_n$ are its known channels, this rule will send a carrier to its corresponding channel and remove the carrier from current region. $e_s = $Remove$(ca)$ when object is sent, otherwise $e_s=\epsilon$. 
+                \item Receive Rule: a receive rule is $r_r: ch_1ch_2...ch_n \rightarrow e_r$, this rule will take one object out from the channels. $e_r = $Add$(ca)$ when there is object in the channels, otherwise $e_r=\epsilon$. 
+            \end{itemize}
+
+            e.g. for two region $1:[o,ch_a \mid r_0,r_s]_{F_1}$ and $2:[ ch_b \mid r_1,r_r]_{F_2}$
+            where
+            \begin{equation}
+                \begin{align}
+                    &r_0: o \rightarrow ca(o,ch_a) \\
+                    &r_s: ch_a,ca(o,ch_a) \rightarrow ch_a \\
+                \end{align}
+            \end{equation}
+            and 
+            \begin{equation}
+             \begin{align}
+                    &r_1: ca(o) \rightarrow o \\
+                    &r_r: ch_b(ca) \rightarrow ch_b,ca\\
+                \end{align}
+            \end{equation}
+
+            Cross system communication can also be used to integrate any P system to a augmented general P system.
+
+            By default, when there is a channel object in the region, the corresponding send and receive rules are added and can be ignored from the string or graph notations of the region, since for every system, send rules and receive rules are identical except their known channels and the know channels are all channels available in the region. 
+
+            \paragraph{Graph representation of cross system communication}
+            Membranes of region $\omega_1:[o_1o_2$ $...o_n,$ $ ch_a \mid $ $r_1r_2...r_m,$ $ r_s,r_r]_{F_1}$ and $\omega_2:[o_1'o_2'...o_j',$ $ ch_b \mid$ $ r_1'r_2'...r_k',$ $ r_s,r_r]_{F_2}$ can be represented with a graph representation as in Figure 2, the two-way arrow indicates that both region have send and receive rules, when one region only has a send rule and the other only has a receive rule, use a one-way arrow.
+            \begin{figure}[!htbp]
+                \centering
+                \putonsvg{region_com.svg}{
+                    \putpic{.1}{.6}{$o_1o_2...o_n$}
+                    \putpic{.75}{.6}{$o_1'o_2'...o_j'$}
+                    \putpic{.1}{.4}{$r_1r_2...r_m$}
+                    \putpic{.75}{.4}{$r_1'r_2'...r_k'$}
+                    \putpic{.025}{.1}{$F_1$}
+                    \putpic{.625}{.1}{$F_2$}
+                    \putpic{.025}{.85}{$\omega_1$}
+                    \putpic{.625}{.85}{$\omega_2$}
+                    \putpic{.325}{.5}{$ch_a$}
+                    \putpic{.625}{.5}{$ch_b$}
+                }
+                \caption{Graph representation of cross system communication between two regions}
+                \label{fig:fig2}
+            \end{figure} 
+
+            If the membrane of region $\omega_1$ is the immediate outer membrane of region $\omega_2$, the representation of cross system communication between them is shown in Figure 3.
+
+             \begin{figure}[!htbp]
+                \centering
+                \putonsvg{region_com_2.svg}{
+                    \putpic{.1}{.6}{$o_1o_2...o_n$}
+                    \putpic{.7}{.6}{$o_1'o_2'...o_j'$}
+                    \putpic{.1}{.4}{$r_1r_2...r_m$}
+                    \putpic{.7}{.4}{$r_1'r_2'...r_k'$}
+                    \putpic{.025}{.1}{$F_1$}
+                    \putpic{.45}{.2}{$F_2$}
+                    \putpic{.025}{.85}{$\omega_1$}
+                    \putpic{.45}{.75}{$\omega_2$}
+                    \putpic{.32}{.5}{$ch_a$}
+                    \putpic{.5}{.5}{$ch_b$}
+                }
+                \caption{Graph representation of cross system communication between two regions with inclusive relationship}
+                \label{fig:fig3}
+            \end{figure} 
+            
+    \section{High efficiency emulation for augmented general P system}
+
+    For the requirement of fast and general emulation for P systems, a emulation library Membrane Emulation Lib (MEME for short) is designed and implemented based on the augmented general P system framework.
+
+    The current emulation tools take a approach of using a intermediate language, like p-lingua, to describe a P system and compile it into a emulation program, or use it as interpreted language to drive the emulator. 
+    
+    This brings convince for the emulation of the P systems that the intermediate language supports, but when facing a P system that the intermediate language cannot describe, the intermediate language along with its compiler and emulator or the emulation library need to be expanded to adapt the novel system, because the language level of the intermediate language is not high enough.
+
+    The structure of the augmented general P system gives a benefit of using mappings to describe the feature of each P systems, these mappings can be implemented directly with modern program languages. Hence, not like the current emulation tools, MEME dose not requires a intermediate language to describe a P system, all code is written with program language, therefore MEME can be used to implement more P systems without the update to the library itself.
+
+    Another main benefit of MEME is its efficiency. With compiled language Rust and multi-thread design, MEME delivers a more efficient program, the implemented P system can be compiled into executable on various platforms.
+
+    \subsection{Structure of MEME}
+    MEME is designed to be a modular library, interfaces between modules and default modules are provided. Modules of MEME can be combined with custom modules to expand the function of MEME or to optimize the performance. 
+
+        \subsubsection{Top level interfaces}
+        Objects, rules and membranes are three most important things of a P system. Every object, rule or membrane in MEME must implement the corresponding interface IObj, IRule and IMem. Interfaces IObjStore and IObjStat are used for the storage and the statistic of objects in the membrane. Similarly, interface IRuleStore and IRuleStat are used for the storage and the statistic of rules in the membrane. These interfaces are the top level interfaces of MEME, their relationship is shown in Figure 4.
+        \begin{figure}[!htbp]
+            \centering
+            \includesvg[width=\textwidth]{\figpath interface_relation.svg}
+            \caption{Top level interfaces relations of MEME}
+            \label{fig:fig4}
+        \end{figure}
+
+        \subsubsection{System architecture}
+        The architecture diagram of MEME is shown in Figure 5.
+        \begin{figure}[!htbp]
+            \centering
+            \includesvg{\figpath placeholder.svg}
+            \caption{Architecture diagram of MEME}
+            \label{fig:fig5}
+        \end{figure}
+
+    \subsection{Versatility of MEME}
+    To use MEME, a P system $sys$ must satisfy the following requirements:
+    \begin{itemize}
+        \item $sys$ is defined or has a equivalent definition as a augmented general P system.
+        \item The feature and effect mappings of $sys$ can be implemented with high-level programming language.
+    \end{itemize}
+
+    To use MEME without any custom module, a P system $sys$ must further satisfy the following requirements:
+     \begin{itemize}
+        \item Influences of $sys$ are all universal influences.
+        \item Membranes of $sys$ evolve under default scheme.
+        \item Properties of any object can be send across thread boundaries.
+    \end{itemize}
+
+    \subsection{Performance measurements}
+    
+    Indexes: CPU Usage, Memory Usage, R-HTOPS(Rules in region with one Hundred Thousand Objects Per Second)
+
+    TR-MOPS is used to measure the performance for a single membrane.
+
+    Rule for R-HTOPS: 
+    \begin{itemize}
+        \item $r_1: (o_r, 100) \rightarrow$ Add$(o_{stop})$Add$(o(ty, rtg))$Remove$(o_r, 1)$, $O$ is an untagged reference for $o$, $rtg$ is a random tag.
+        \item $r_2: \epsilon \rightarrow$ Add$(send(o(ty, rtg), env))$, $env$ is the environment region, $send$ is cross system communication object.
+        \item $r_{stop} (o_{stop}, 500) \rightarrow$ Stop. 
+        \item $r_{com}$ is cross system communication rule.
+    \end{itemize}
+
+    $R-HTOPS = 2000 / T_{elapsed}$, where $T_{elapsed}$ is the time from system start to stop in seconds.
+
+    Similarly, R-MOPS, R-x-HTOPS,  R-TOPS, R-x-TOPS is defined, for x hundreds thousand of objects and x thousand of objects.
+
+    \begin{itemize}
+        \item R-MOPS: 49.0461,
+        \item R-5-HTOPS: 102.9548, 
+        \item R-HTOPS: 1102.5358,
+        \item R-10-TOPS: 10928.9617,
+        \item R-TOPS: 51282.0513.
+    \end{itemize}
+ 
+    Platform: AMD Ryzen 5 3400G @3.7 GHz, one physical thread is used.
+    
+    R-TMPS, R-x-TMPS, R-HTMPS, R-x-HTMPS, R-MMPS
+    
+    \section{Other elements}
+
+        
+\end{document}

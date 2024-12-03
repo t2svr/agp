@@ -21,6 +21,8 @@ rand = "0.8"
 ahash = "0.8"               #高效hashmap
 rayon = "1.10"              #用于CPU加速
 idgenerator = "2.0"         #用于局域ID生成
+criterion = { version = "0.5", features = ["html_reports"] } #用于计算性能指标
+#pprof = {version = "0.4", features = ["flamegraph", "criterion"]} #用于性能跟踪
 
 [dependencies.uuid]         #为分布式系统对象交换提供全局ID预留
 version = "1.11"
@@ -30,4 +32,6 @@ features = [
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
 ]
 
-
+[[bench]]
+name = "meme_benchmark"
+harness = false
