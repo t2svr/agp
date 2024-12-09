@@ -1,0 +1,339 @@
+<svg version="1.1" baseProfile="full" width="574.0" height="596.0" viewbox="0 0 574 596" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ev="http://www.w3.org/2001/xml-events">
+	<desc >#fill: #ffffff; #ffffff
+	#edges: rounded
+	#background: #ffffff
+	#leading: 0
+	#padding: 0
+	#spacing: 40
+	#gutter: 1
+	#lineWidth: 2
+	
+	[Rule|
+	  [Type parameters|
+	    ObjType: Clone + Hash + Eq; 
+	    ObjUnit: Scalar;
+	    Condition: ICondition;
+	    Effect: IRuleEffect;
+	  ]|
+	  getConditon();
+	  getEffect();|
+	  [Properties|
+	    ty: TypeId; tg: Tag; amount: Unit;|
+	    ...Other custom properties...
+	  ]|
+	  [AsRefObj|
+	    [Type parameters|
+	      Tag: Clone + Hash + Eq; Unit: Scalar;
+	    ]|
+	    getType();
+	    getTag();
+	    getAmount();
+	    asAny();
+	    asAnyMut();
+	  ]
+	]
+	
+	[Membrane|
+	  [Type parameters|
+	    ObjType: Clone + Hash + Eq; ObjUnit: Scalar; Condition; Effect;
+	  ]|
+	  getConditon(); getEffect();|
+	  [Properties|
+	    ty: TypeId; tg: Tag; amount: Unit;|
+	    ...Other custom properties...
+	  ]|
+	  [AsRefObj|
+	    [Type parameters|
+	      Tag: Clone + Hash + Eq; Unit: Scalar;
+	    ]|
+	    getType();
+	    getTag();
+	    getAmount();
+	    asAny();
+	    asAnyMut();
+	  ]
+	]</desc>
+	<g stroke-width="1.0" text-align="left" font="12pt Helvetica, Arial, sans-serif" font-size="12pt" font-family="Helvetica" font-weight="normal" font-style="normal">
+		<g font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" stroke="#33322E">
+			<g stroke="transparent" fill="#ffffff">
+				<rect x="0.0" y="0.0" height="596.0" width="574.0" stroke="none"></rect>
+			</g>
+			<g transform="translate(8, 8)" fill="#33322E">
+				<g transform="translate(1, 1)">
+					<g data-name="Rule">
+						<g fill="#ffffff" stroke="#33322E" data-name="Rule">
+							<rect x="0.0" y="0.0" height="578.0" width="258.0" data-name="Rule"></rect>
+							<path d="M0.0 31.0 L258.0 31.0" fill="none" data-name="Rule"></path>
+							<path d="M0.0 156.0 L258.0 156.0" fill="none" data-name="Rule"></path>
+							<path d="M0.0 202.0 L258.0 202.0" fill="none" data-name="Rule"></path>
+							<path d="M0.0 343.0 L258.0 343.0" fill="none" data-name="Rule"></path>
+						</g>
+						<g transform="translate(0, 0)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="Rule">
+							<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="Rule">
+								<text x="121.0" y="13.5" stroke="none" text-anchor="middle" data-name="Rule">Rule</text>
+								
+							</g>
+						</g>
+						<g transform="translate(0, 31)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Rule">
+							<g transform="translate(8, 8)" fill="#33322E" data-name="Rule">
+								<g transform="translate(1, 1)" data-name="Rule">
+									<g data-name="Type parameters">
+										<g fill=" #ffffff" stroke="#33322E" data-name="Type parameters">
+											<rect x="0.0" y="0.0" height="107.0" width="240.0" data-name="Type parameters"></rect>
+											<path d="M0.0 31.0 L240.0 31.0" fill="none" data-name="Type parameters"></path>
+										</g>
+										<g transform="translate(0, 0)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="Type parameters">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="Type parameters">
+												<text x="112.0" y="13.5" stroke="none" text-anchor="middle" data-name="Type parameters">Type parameters</text>
+												
+											</g>
+										</g>
+										<g transform="translate(0, 31)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Type parameters">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="Type parameters">
+												<text x="0.0" y="13.5" stroke="none" data-name="Type parameters">ObjType: Clone + Hash + Eq</text>
+												<text x="0.0" y="28.5" stroke="none" data-name="Type parameters">ObjUnit: Scalar</text>
+												<text x="0.0" y="43.5" stroke="none" data-name="Type parameters">Condition: ICondition</text>
+												<text x="0.0" y="58.5" stroke="none" data-name="Type parameters">Effect: IRuleEffect</text>
+												
+											</g>
+										</g>
+									</g>
+								</g>
+							</g>
+						</g>
+						<g transform="translate(0, 156)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Rule">
+							<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="Rule">
+								<text x="0.0" y="13.5" stroke="none" data-name="Rule">getConditon()</text>
+								<text x="0.0" y="28.5" stroke="none" data-name="Rule">getEffect()</text>
+								
+							</g>
+						</g>
+						<g transform="translate(0, 202)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Rule">
+							<g transform="translate(8, 8)" fill="#33322E" data-name="Rule">
+								<g transform="translate(1, 1)" data-name="Rule">
+									<g data-name="Properties">
+										<g fill=" #ffffff" stroke="#33322E" data-name="Properties">
+											<rect x="0.0" y="0.0" height="123.0" width="237.0" data-name="Properties"></rect>
+											<path d="M0.0 31.0 L237.0 31.0" fill="none" data-name="Properties"></path>
+											<path d="M0.0 92.0 L237.0 92.0" fill="none" data-name="Properties"></path>
+										</g>
+										<g transform="translate(0, 0)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="Properties">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="Properties">
+												<text x="110.5" y="13.5" stroke="none" text-anchor="middle" data-name="Properties">Properties</text>
+												
+											</g>
+										</g>
+										<g transform="translate(0, 31)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Properties">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="Properties">
+												<text x="0.0" y="13.5" stroke="none" data-name="Properties">ty: TypeId</text>
+												<text x="0.0" y="28.5" stroke="none" data-name="Properties">tg: Tag</text>
+												<text x="0.0" y="43.5" stroke="none" data-name="Properties">amount: Unit</text>
+												
+											</g>
+										</g>
+										<g transform="translate(0, 92)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Properties">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="Properties">
+												<text x="0.0" y="13.5" stroke="none" data-name="Properties">...Other custom properties...</text>
+												
+											</g>
+										</g>
+									</g>
+								</g>
+							</g>
+						</g>
+						<g transform="translate(0, 343)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Rule">
+							<g transform="translate(8, 8)" fill="#33322E" data-name="Rule">
+								<g transform="translate(1, 1)" data-name="Rule">
+									<g data-name="AsRefObj">
+										<g fill=" #ffffff" stroke="#33322E" data-name="AsRefObj">
+											<rect x="0.0" y="0.0" height="217.0" width="222.0" data-name="AsRefObj"></rect>
+											<path d="M0.0 31.0 L222.0 31.0" fill="none" data-name="AsRefObj"></path>
+											<path d="M0.0 126.0 L222.0 126.0" fill="none" data-name="AsRefObj"></path>
+										</g>
+										<g transform="translate(0, 0)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="AsRefObj">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="AsRefObj">
+												<text x="103.0" y="13.5" stroke="none" text-anchor="middle" data-name="AsRefObj">AsRefObj</text>
+												
+											</g>
+										</g>
+										<g transform="translate(0, 31)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="AsRefObj">
+											<g transform="translate(8, 8)" fill="#33322E" data-name="AsRefObj">
+												<g transform="translate(1, 1)" data-name="AsRefObj">
+													<g data-name="Type parameters">
+														<g fill=" #ffffff" stroke="#33322E" data-name="Type parameters">
+															<rect x="0.0" y="0.0" height="77.0" width="204.0" data-name="Type parameters"></rect>
+															<path d="M0.0 31.0 L204.0 31.0" fill="none" data-name="Type parameters"></path>
+														</g>
+														<g transform="translate(0, 0)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="Type parameters">
+															<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="Type parameters">
+																<text x="94.0" y="13.5" stroke="none" text-anchor="middle" data-name="Type parameters">Type parameters</text>
+																
+															</g>
+														</g>
+														<g transform="translate(0, 31)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Type parameters">
+															<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="Type parameters">
+																<text x="0.0" y="13.5" stroke="none" data-name="Type parameters">Tag: Clone + Hash + Eq</text>
+																<text x="0.0" y="28.5" stroke="none" data-name="Type parameters">Unit: Scalar</text>
+																
+															</g>
+														</g>
+													</g>
+												</g>
+											</g>
+										</g>
+										<g transform="translate(0, 126)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="AsRefObj">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="AsRefObj">
+												<text x="0.0" y="13.5" stroke="none" data-name="AsRefObj">getType()</text>
+												<text x="0.0" y="28.5" stroke="none" data-name="AsRefObj">getTag()</text>
+												<text x="0.0" y="43.5" stroke="none" data-name="AsRefObj">getAmount()</text>
+												<text x="0.0" y="58.5" stroke="none" data-name="AsRefObj">asAny()</text>
+												<text x="0.0" y="73.5" stroke="none" data-name="AsRefObj">asAnyMut()</text>
+												
+											</g>
+										</g>
+									</g>
+								</g>
+							</g>
+						</g>
+					</g>
+					<g data-name="Membrane">
+						<g fill="#ffffff" stroke="#33322E" data-name="Membrane">
+							<rect x="298.0" y="0.0" height="578.0" width="258.0" data-name="Membrane"></rect>
+							<path d="M298.0 31.0 L556.0 31.0" fill="none" data-name="Membrane"></path>
+							<path d="M298.0 156.0 L556.0 156.0" fill="none" data-name="Membrane"></path>
+							<path d="M298.0 202.0 L556.0 202.0" fill="none" data-name="Membrane"></path>
+							<path d="M298.0 343.0 L556.0 343.0" fill="none" data-name="Membrane"></path>
+						</g>
+						<g transform="translate(298, 0)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="Membrane">
+							<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="Membrane">
+								<text x="121.0" y="13.5" stroke="none" text-anchor="middle" data-name="Membrane">Membrane</text>
+								
+							</g>
+						</g>
+						<g transform="translate(298, 31)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Membrane">
+							<g transform="translate(8, 8)" fill="#33322E" data-name="Membrane">
+								<g transform="translate(1, 1)" data-name="Membrane">
+									<g data-name="Type parameters">
+										<g fill=" #ffffff" stroke="#33322E" data-name="Type parameters">
+											<rect x="0.0" y="0.0" height="107.0" width="240.0" data-name="Type parameters"></rect>
+											<path d="M0.0 31.0 L240.0 31.0" fill="none" data-name="Type parameters"></path>
+										</g>
+										<g transform="translate(0, 0)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="Type parameters">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="Type parameters">
+												<text x="112.0" y="13.5" stroke="none" text-anchor="middle" data-name="Type parameters">Type parameters</text>
+												
+											</g>
+										</g>
+										<g transform="translate(0, 31)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Type parameters">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="Type parameters">
+												<text x="0.0" y="13.5" stroke="none" data-name="Type parameters">ObjType: Clone + Hash + Eq</text>
+												<text x="0.0" y="28.5" stroke="none" data-name="Type parameters">ObjUnit: Scalar</text>
+												<text x="0.0" y="43.5" stroke="none" data-name="Type parameters">Condition</text>
+												<text x="0.0" y="58.5" stroke="none" data-name="Type parameters">Effect</text>
+												
+											</g>
+										</g>
+									</g>
+								</g>
+							</g>
+						</g>
+						<g transform="translate(298, 156)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Membrane">
+							<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="Membrane">
+								<text x="0.0" y="13.5" stroke="none" data-name="Membrane">getConditon()</text>
+								<text x="0.0" y="28.5" stroke="none" data-name="Membrane">getEffect()</text>
+								
+							</g>
+						</g>
+						<g transform="translate(298, 202)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Membrane">
+							<g transform="translate(8, 8)" fill="#33322E" data-name="Membrane">
+								<g transform="translate(1, 1)" data-name="Membrane">
+									<g data-name="Properties">
+										<g fill=" #ffffff" stroke="#33322E" data-name="Properties">
+											<rect x="0.0" y="0.0" height="123.0" width="237.0" data-name="Properties"></rect>
+											<path d="M0.0 31.0 L237.0 31.0" fill="none" data-name="Properties"></path>
+											<path d="M0.0 92.0 L237.0 92.0" fill="none" data-name="Properties"></path>
+										</g>
+										<g transform="translate(0, 0)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="Properties">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="Properties">
+												<text x="110.5" y="13.5" stroke="none" text-anchor="middle" data-name="Properties">Properties</text>
+												
+											</g>
+										</g>
+										<g transform="translate(0, 31)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Properties">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="Properties">
+												<text x="0.0" y="13.5" stroke="none" data-name="Properties">ty: TypeId</text>
+												<text x="0.0" y="28.5" stroke="none" data-name="Properties">tg: Tag</text>
+												<text x="0.0" y="43.5" stroke="none" data-name="Properties">amount: Unit</text>
+												
+											</g>
+										</g>
+										<g transform="translate(0, 92)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Properties">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="Properties">
+												<text x="0.0" y="13.5" stroke="none" data-name="Properties">...Other custom properties...</text>
+												
+											</g>
+										</g>
+									</g>
+								</g>
+							</g>
+						</g>
+						<g transform="translate(298, 343)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Membrane">
+							<g transform="translate(8, 8)" fill="#33322E" data-name="Membrane">
+								<g transform="translate(1, 1)" data-name="Membrane">
+									<g data-name="AsRefObj">
+										<g fill=" #ffffff" stroke="#33322E" data-name="AsRefObj">
+											<rect x="0.0" y="0.0" height="217.0" width="222.0" data-name="AsRefObj"></rect>
+											<path d="M0.0 31.0 L222.0 31.0" fill="none" data-name="AsRefObj"></path>
+											<path d="M0.0 126.0 L222.0 126.0" fill="none" data-name="AsRefObj"></path>
+										</g>
+										<g transform="translate(0, 0)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="AsRefObj">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="AsRefObj">
+												<text x="103.0" y="13.5" stroke="none" text-anchor="middle" data-name="AsRefObj">AsRefObj</text>
+												
+											</g>
+										</g>
+										<g transform="translate(0, 31)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="AsRefObj">
+											<g transform="translate(8, 8)" fill="#33322E" data-name="AsRefObj">
+												<g transform="translate(1, 1)" data-name="AsRefObj">
+													<g data-name="Type parameters">
+														<g fill=" #ffffff" stroke="#33322E" data-name="Type parameters">
+															<rect x="0.0" y="0.0" height="77.0" width="204.0" data-name="Type parameters"></rect>
+															<path d="M0.0 31.0 L204.0 31.0" fill="none" data-name="Type parameters"></path>
+														</g>
+														<g transform="translate(0, 0)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="Type parameters">
+															<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="Type parameters">
+																<text x="94.0" y="13.5" stroke="none" text-anchor="middle" data-name="Type parameters">Type parameters</text>
+																
+															</g>
+														</g>
+														<g transform="translate(0, 31)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Type parameters">
+															<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="Type parameters">
+																<text x="0.0" y="13.5" stroke="none" data-name="Type parameters">Tag: Clone + Hash + Eq</text>
+																<text x="0.0" y="28.5" stroke="none" data-name="Type parameters">Unit: Scalar</text>
+																
+															</g>
+														</g>
+													</g>
+												</g>
+											</g>
+										</g>
+										<g transform="translate(0, 126)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="AsRefObj">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="AsRefObj">
+												<text x="0.0" y="13.5" stroke="none" data-name="AsRefObj">getType()</text>
+												<text x="0.0" y="28.5" stroke="none" data-name="AsRefObj">getTag()</text>
+												<text x="0.0" y="43.5" stroke="none" data-name="AsRefObj">getAmount()</text>
+												<text x="0.0" y="58.5" stroke="none" data-name="AsRefObj">asAny()</text>
+												<text x="0.0" y="73.5" stroke="none" data-name="AsRefObj">asAnyMut()</text>
+												
+											</g>
+										</g>
+									</g>
+								</g>
+							</g>
+						</g>
+					</g>
+				</g>
+			</g>
+		</g>
+	</g>
+</svg>

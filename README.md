@@ -2,10 +2,14 @@ Start:
 
 - install rustup
 - install rust-toolchains
-- cargo install cargo-make
-- cargo install clippy
-- cargo install flamegraph
-
+- <code>cargo install cargo-make</code>
+- <code>cargo install clippy</code>
+- <code>cargo install flamegraph</code>
+- install kroki cli
+- <code>docker pull docker.udayun.com/yuzutech/kroki:latest</code>
+- <code>docker run -p8000:8000 yuzutech/kroki</code>
+- install texlive
+- <code>cargo make all</code>
 
 并行化所用的库：
 CPU并行：Rayon

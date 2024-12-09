@@ -1,0 +1,54 @@
+#fill: #ffffff; #ffffff
+#edges: rounded
+#background: #ffffff
+#leading: 0
+#padding: 0
+#spacing: 40
+#gutter: 1
+#lineWidth: 2
+
+[Rule|
+  [Type parameters|
+    ObjType: Clone + Hash + Eq; 
+    ObjUnit: Scalar;
+    Condition: ICondition;
+    Effect: IRuleEffect;
+  ]|
+  getConditon();
+  getEffect();|
+  [Properties|
+    ty: TypeId; tg: Tag; amount: Unit;|
+    ...Other custom properties...
+  ]|
+  [AsRefObj|
+    [Type parameters|
+      Tag: Clone + Hash + Eq; Unit: Scalar;
+    ]|
+    getType();
+    getTag();
+    getAmount();
+    asAny();
+    asAnyMut();
+  ]
+]
+
+[Membrane|
+  [Type parameters|
+    ObjType: Clone + Hash + Eq; ObjUnit: Scalar; Condition; Effect;
+  ]|
+  getConditon(); getEffect();|
+  [Properties|
+    ty: TypeId; tg: Tag; amount: Unit;|
+    ...Other custom properties...
+  ]|
+  [AsRefObj|
+    [Type parameters|
+      Tag: Clone + Hash + Eq; Unit: Scalar;
+    ]|
+    getType();
+    getTag();
+    getAmount();
+    asAny();
+    asAnyMut();
+  ]
+]

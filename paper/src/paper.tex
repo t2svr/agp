@@ -1,14 +1,15 @@
-% Copyright 2024 Junshuang Hu
+%// Copyright 2024 Junshuang Hu
 \documentclass[9pt,a4paper,twoside]{article}
 \usepackage{geometry}
 \usepackage[english]{babel}
 \usepackage{amsmath}
-\usepackage{amsfonts}
+\usepackage{amssymb}
 \usepackage{svg}
 \usepackage{tabularx}
 \usepackage{booktabs} 
 
-\newcommand\figpath{../assets/figures/}
+\providecommand{\keywords}[1]{\textbf{\textit{Keywords:}} #1}
+\newcommand\figpath{./paper/assets/figures/}
 
 \newcommand\putpic[3]{%
   \put(#1\wd0,#2\ht0){#3}%
@@ -139,10 +140,10 @@
                 Let $a_{ty} = Amount_\omega(ty)$ be the amount of object of type $ty$ in region $\omega$, where $\omega \in S$ and $Amount_\omega: S_y \rightarrow \mathbb{R}$, 
                 $S$ and $S_y$ are sets of strings. The following equation is always satisfied.
                 \begin{equation}
-                    \begin{align}
+                    \begin{aligned}
                         a_{ty} &= Amount_\omega(ty) \\
                         &= \sum_{o \in O'}{Amount(o)} \\
-                    \end{align}
+                    \end{aligned}
                 \end{equation}
                 where $O' = \{ o_i = ty_i \mid o_i \in O_u, o_i\text{ is in region }\omega, ty_i = ty \} $. This is equivalent to the expression with multi-set of 
                 untagged objects in a region, where the multitude of each object is a real number which corresponding to the amount of objects in a region. 
@@ -260,13 +261,13 @@
         
             For rule $r(a_1,a_2,...a_n): c \rightarrow e_c$, where $c=(c_t, c_u)$, the simplified rule expression is:
             \begin{equation}
-                \begin{align}
+                \begin{aligned}
                     &r(a_1,a_2,...a_n): \\
                     &c_1 \rightarrow e_c(c_1)  \\
                     &c_2 \rightarrow e_c(c_2)  \\
                     &...\\
                     &c_n \rightarrow e_c(c_n)  \\
-                \end{align}
+                \end{aligned}
             \end{equation}
             or in a single line
             \begin{equation}
@@ -300,11 +301,11 @@
              For a rule $r: c \rightarrow e_c$, $c=c_t \cup c_u$, if $e_c$ is a multi-branch effect in the following form:
             \begin{equation}
                 e_c=\left\{
-                \begin{align}
-                    & i, \forall o_i \in c_t, p_i \subseteq Property(o_i)\\
-                    & \epsilon, otherwise
-                \end{align}
-                \right
+                    \begin{aligned}
+                        & i, \forall o_i \in c_t, p_i \subseteq Property(o_i)\\
+                        & \epsilon, otherwise
+                    \end{aligned}
+                \right.
             \end{equation}
             where $p_i$ and $1 \leq i \leq n$ is the properties required by effect to take place, then the rule can be simply written as
             \begin{equation}
@@ -313,43 +314,43 @@
 
             e.g. 
             \begin{equation}
-                \begin{align}
+                \begin{aligned}
                     &r_1: \\
                     &o_1o_2(u_1, 10) \rightarrow \text{Remove}(o_1)\text{Add}(u_1, 5)  \\
                     &o_3 \rightarrow \text{Add}(o_5) \\
                     &o_4 \rightarrow \text{Remove}(o_4)\text{Add}(o_4(some,new,props)) \\
                     &(u_2, 20) \rightarrow \epsilon \\
-                \end{align}
+                \end{aligned}
             \end{equation}
             or
              \begin{equation}
-                \begin{align}
+                \begin{aligned}
                     &r_1: \\
                     &o_1o_2(u_1, 10) \rightarrow o_2(u_1, 15)  \\
                     &o_3 \rightarrow o_3o_5 \\
                     &o_4(with,old,props) \rightarrow o_4(some,new,props) \\
                     &(u_2, 20) \rightarrow (u_2, 20) \\
-                \end{align}
+                \end{aligned}
             \end{equation}
             or
             \begin{equation}
-                \begin{align}
+                \begin{aligned}
                     &r_2(a): \\
                     &(u_1, a) \rightarrow \text{Remove}(u_1) \\
                     &r_2(a_{old}) \rightarrow \text{Add}(r_2(a = a_{old} + 1))
-                \end{align}
+                \end{aligned}
             \end{equation}
             or
             \begin{equation}
-                \begin{align}
+                \begin{aligned}
                     r_3: o_1,o_2,(u_1, 60) \rightarrow \text{Add}(o_3)\text{Remove}(o_2)
-                \end{align}
+                \end{aligned}
             \end{equation}
             or
             \begin{equation}
-                \begin{align}
+                \begin{aligned}
                     r_4:\epsilon \rightarrow \text{Add}(o_1)\text{Add}(u_1, 1.1)
-                \end{align}
+                \end{aligned}
             \end{equation}
 
         
@@ -484,17 +485,17 @@
             e.g. for two region $1:[o,ch_a \mid r_0,r_s]_{F_1}$ and $2:[ ch_b \mid r_1,r_r]_{F_2}$
             where
             \begin{equation}
-                \begin{align}
+                \begin{aligned}
                     &r_0: o \rightarrow ca(o,ch_a) \\
                     &r_s: ch_a,ca(o,ch_a) \rightarrow ch_a \\
-                \end{align}
+                \end{aligned}
             \end{equation}
             and 
             \begin{equation}
-             \begin{align}
+             \begin{aligned}
                     &r_1: ca(o) \rightarrow o \\
                     &r_r: ch_b(ca) \rightarrow ch_b,ca\\
-                \end{align}
+                \end{aligned}
             \end{equation}
 
             Cross system communication can also be used to integrate any P system to a augmented general P system.
@@ -554,24 +555,52 @@
     Another main benefit of MEME is its efficiency. With compiled language Rust and multi-thread design, MEME delivers a more efficient program, the implemented P system can be compiled into executable on various platforms.
 
     \subsection{Structure of MEME}
-    MEME is designed to be a modular library, interfaces between modules and default modules are provided. Modules of MEME can be combined with custom modules to expand the function of MEME or to optimize the performance. 
+    MEME is designed to be a modular library, interfaces between modules and default modules are provided. 
+    Modules of MEME can be combined with custom modules to expand the function of MEME or to optimize the performance. 
 
         \subsubsection{Top level interfaces}
-        Objects, rules and membranes are three most important things of a P system. Every object, rule or membrane in MEME must implement the corresponding interface IObj, IRule and IMem. Interfaces IObjStore and IObjStat are used for the storage and the statistic of objects in the membrane. Similarly, interface IRuleStore and IRuleStat are used for the storage and the statistic of rules in the membrane. These interfaces are the top level interfaces of MEME, their relationship is shown in Figure 4.
+        Objects, rules and membranes are three most important things of a AGP system, they are abstracted into three interfaces: IObj, IRule and IMem.
+        Every object, rule or membrane in MEME must implement the corresponding interface.
+        Interfaces IObjStore and IObjStat are used for the storage and the statistic of objects in the membrane. 
+        Similarly, interface IRuleStore and IRuleStat are used for the storage and the statistic of rules in the membrane. 
+        These interfaces are the top level interfaces of MEME, modules only implemented these interfaces can be combined to form a minimal emulator program as shown in Fig 4.
+        \begin{figure}[!htbp]
+            \centering
+            \includesvg[width=\textwidth]{\figpath minimal_sys.svg}
+            \caption{Minimal emulator system with MEME}
+            \label{fig:fig4}
+        \end{figure}
+
+        Top level interfaces have a dependency relationship, to use a interface in a emulator program, its dependency interface must be used as well,
+        their relationship is shown in Figure 5.
         \begin{figure}[!htbp]
             \centering
             \includesvg[width=\textwidth]{\figpath interface_relation.svg}
             \caption{Top level interfaces relations of MEME}
-            \label{fig:fig4}
+            \label{fig:fig5}
+        \end{figure}
+
+        IObj, IRule and IMem are defined in the scheme shown in Fig 6 and Fig 7.
+        \begin{figure}[!htbp]
+            \centering
+            \includesvg{\figpath obj.svg}
+            \caption{IObj, IRule and IMem interfaces}
+            \label{fig:fig6}
+        \end{figure}
+        \begin{figure}[!htbp]
+            \centering
+            \includesvg[width=\textwidth]{\figpath rule_mem.svg}
+            \caption{IObj, IRule and IMem interfaces}
+            \label{fig:fig7}
         \end{figure}
 
         \subsubsection{System architecture}
-        The architecture diagram of MEME is shown in Figure 5.
+        The architecture diagram of a typical emulator system implemented with MEME is shown in Figure 8.
         \begin{figure}[!htbp]
             \centering
-            \includesvg{\figpath placeholder.svg}
+            \includesvg[width=\textwidth]{\figpath sys_arch.svg}
             \caption{Architecture diagram of MEME}
-            \label{fig:fig5}
+            \label{fig:fig8}
         \end{figure}
 
     \subsection{Versatility of MEME}

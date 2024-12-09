@@ -1,0 +1,28 @@
+#fill: #ffffff; #ffffff
+#edges: rounded
+#background: #ffffff
+#leading: 0
+#padding: 0
+#spacing: 40
+#gutter: 1
+#lineWidth: 2
+
+[TaggedObject|
+  [Type parameters|
+  Tag: Clone + Hash + Eq; Unit: Scalar;
+  ]|
+  getType();getTag();
+  getTmount();
+  asAny();asAnyMut();|
+  [Properties|
+    ty: TypeId; tg: Tag; amount: Unit|
+    ...Other custom properties...
+  ]
+]
+
+[UntaggedObj |
+  Unit: Scalar|
+  ty: TypeId; amount: Unit;
+]
+
+

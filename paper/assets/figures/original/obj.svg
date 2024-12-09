@@ -1,0 +1,147 @@
+<svg version="1.1" baseProfile="full" width="433.0" height="376.0" viewbox="0 0 433 376" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ev="http://www.w3.org/2001/xml-events">
+	<desc >#fill: #ffffff; #ffffff
+	#edges: rounded
+	#background: #ffffff
+	#leading: 0
+	#padding: 0
+	#spacing: 40
+	#gutter: 1
+	#lineWidth: 2
+	
+	[TaggedObject|
+	  [Type parameters|
+	  Tag: Clone + Hash + Eq; Unit: Scalar;
+	  ]|
+	  getType();getTag();
+	  getTmount();
+	  asAny();asAnyMut();|
+	  [Properties|
+	    ty: TypeId; tg: Tag; amount: Unit|
+	    ...Other custom properties...
+	  ]
+	]
+	
+	[UntaggedObj |
+	  Unit: Scalar|
+	  ty: TypeId; amount: Unit;
+	]</desc>
+	<g stroke-width="1.0" text-align="left" font="12pt Helvetica, Arial, sans-serif" font-size="12pt" font-family="Helvetica" font-weight="normal" font-style="normal">
+		<g font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" stroke="#33322E">
+			<g stroke="transparent" fill="#ffffff">
+				<rect x="0.0" y="0.0" height="376.0" width="433.0" stroke="none"></rect>
+			</g>
+			<g transform="translate(8, 8)" fill="#33322E">
+				<g transform="translate(1, 1)">
+					<g data-name="TaggedObject">
+						<g fill="#ffffff" stroke="#33322E" data-name="TaggedObject">
+							<rect x="0.0" y="0.0" height="358.0" width="255.0" data-name="TaggedObject"></rect>
+							<path d="M0.0 31.0 L255.0 31.0" fill="none" data-name="TaggedObject"></path>
+							<path d="M0.0 126.0 L255.0 126.0" fill="none" data-name="TaggedObject"></path>
+							<path d="M0.0 217.0 L255.0 217.0" fill="none" data-name="TaggedObject"></path>
+						</g>
+						<g transform="translate(0, 0)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="TaggedObject">
+							<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="TaggedObject">
+								<text x="119.5" y="13.5" stroke="none" text-anchor="middle" data-name="TaggedObject">TaggedObject</text>
+								
+							</g>
+						</g>
+						<g transform="translate(0, 31)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="TaggedObject">
+							<g transform="translate(8, 8)" fill="#33322E" data-name="TaggedObject">
+								<g transform="translate(1, 1)" data-name="TaggedObject">
+									<g data-name="Type parameters">
+										<g fill=" #ffffff" stroke="#33322E" data-name="Type parameters">
+											<rect x="0.0" y="0.0" height="77.0" width="204.0" data-name="Type parameters"></rect>
+											<path d="M0.0 31.0 L204.0 31.0" fill="none" data-name="Type parameters"></path>
+										</g>
+										<g transform="translate(0, 0)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="Type parameters">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="Type parameters">
+												<text x="94.0" y="13.5" stroke="none" text-anchor="middle" data-name="Type parameters">Type parameters</text>
+												
+											</g>
+										</g>
+										<g transform="translate(0, 31)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Type parameters">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="Type parameters">
+												<text x="0.0" y="13.5" stroke="none" data-name="Type parameters">Tag: Clone + Hash + Eq</text>
+												<text x="0.0" y="28.5" stroke="none" data-name="Type parameters">Unit: Scalar</text>
+												
+											</g>
+										</g>
+									</g>
+								</g>
+							</g>
+						</g>
+						<g transform="translate(0, 126)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="TaggedObject">
+							<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="TaggedObject">
+								<text x="0.0" y="13.5" stroke="none" data-name="TaggedObject">getType()</text>
+								<text x="0.0" y="28.5" stroke="none" data-name="TaggedObject">getTag()</text>
+								<text x="0.0" y="43.5" stroke="none" data-name="TaggedObject">getTmount()</text>
+								<text x="0.0" y="58.5" stroke="none" data-name="TaggedObject">asAny()</text>
+								<text x="0.0" y="73.5" stroke="none" data-name="TaggedObject">asAnyMut()</text>
+								
+							</g>
+						</g>
+						<g transform="translate(0, 217)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="TaggedObject">
+							<g transform="translate(8, 8)" fill="#33322E" data-name="TaggedObject">
+								<g transform="translate(1, 1)" data-name="TaggedObject">
+									<g data-name="Properties">
+										<g fill=" #ffffff" stroke="#33322E" data-name="Properties">
+											<rect x="0.0" y="0.0" height="123.0" width="237.0" data-name="Properties"></rect>
+											<path d="M0.0 31.0 L237.0 31.0" fill="none" data-name="Properties"></path>
+											<path d="M0.0 92.0 L237.0 92.0" fill="none" data-name="Properties"></path>
+										</g>
+										<g transform="translate(0, 0)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="Properties">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="Properties">
+												<text x="110.5" y="13.5" stroke="none" text-anchor="middle" data-name="Properties">Properties</text>
+												
+											</g>
+										</g>
+										<g transform="translate(0, 31)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Properties">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="Properties">
+												<text x="0.0" y="13.5" stroke="none" data-name="Properties">ty: TypeId</text>
+												<text x="0.0" y="28.5" stroke="none" data-name="Properties">tg: Tag</text>
+												<text x="0.0" y="43.5" stroke="none" data-name="Properties">amount: Unit</text>
+												
+											</g>
+										</g>
+										<g transform="translate(0, 92)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="Properties">
+											<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="Properties">
+												<text x="0.0" y="13.5" stroke="none" data-name="Properties">...Other custom properties...</text>
+												
+											</g>
+										</g>
+									</g>
+								</g>
+							</g>
+						</g>
+					</g>
+					<g data-name="UntaggedObj">
+						<g fill="#ffffff" stroke="#33322E" data-name="UntaggedObj">
+							<rect x="295.0" y="125.0" height="108.0" width="120.0" data-name="UntaggedObj"></rect>
+							<path d="M295.0 156.0 L415.0 156.0" fill="none" data-name="UntaggedObj"></path>
+							<path d="M295.0 187.0 L415.0 187.0" fill="none" data-name="UntaggedObj"></path>
+						</g>
+						<g transform="translate(295, 125)" font-family="Helvetica" font-size="12pt" font-weight="bold" font-style="normal" data-name="UntaggedObj">
+							<g transform="translate(8, 8)" fill="#33322E" text-align="center" data-name="UntaggedObj">
+								<text x="52.0" y="13.5" stroke="none" text-anchor="middle" data-name="UntaggedObj">UntaggedObj</text>
+								
+							</g>
+						</g>
+						<g transform="translate(295, 156)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="UntaggedObj">
+							<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="UntaggedObj">
+								<text x="0.0" y="13.5" stroke="none" data-name="UntaggedObj">Unit: Scalar</text>
+								
+							</g>
+						</g>
+						<g transform="translate(295, 187)" font-family="Helvetica" font-size="12pt" font-weight="normal" font-style="normal" data-name="UntaggedObj">
+							<g transform="translate(8, 8)" fill="#33322E" text-align="left" data-name="UntaggedObj">
+								<text x="0.0" y="13.5" stroke="none" data-name="UntaggedObj">ty: TypeId</text>
+								<text x="0.0" y="28.5" stroke="none" data-name="UntaggedObj">amount: Unit</text>
+								
+							</g>
+						</g>
+					</g>
+				</g>
+			</g>
+		</g>
+	</g>
+</svg>
