@@ -7,9 +7,41 @@
 \usepackage{svg}
 \usepackage{tabularx}
 \usepackage{booktabs} 
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=true,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    frame=tbrl, %t: top, r, b, l 
+    linewidth=\textwidth,
+}
+
+\lstset{style=mystyle}
 
 \providecommand{\keywords}[1]{\textbf{\textit{Keywords:}} #1}
 \newcommand\figpath{./paper/assets/figures/}
+\newcommand\codepath{./paper/src/codes/}
+
 
 \newcommand\putpic[3]{%
   \put(#1\wd0,#2\ht0){#3}%
@@ -563,44 +595,47 @@
         Every object, rule or membrane in MEME must implement the corresponding interface.
         Interfaces IObjStore and IObjStat are used for the storage and the statistic of objects in the membrane. 
         Similarly, interface IRuleStore and IRuleStat are used for the storage and the statistic of rules in the membrane. 
-        These interfaces are the top level interfaces of MEME, modules only implemented these interfaces can be combined to form a minimal emulator program as shown in Fig 4.
-        \begin{figure}[!htbp]
-            \centering
-            \includesvg[width=\textwidth]{\figpath minimal_sys.svg}
-            \caption{Minimal emulator system with MEME}
-            \label{fig:fig4}
-        \end{figure}
+        These interfaces are the top level interfaces of MEME.
 
-        Top level interfaces have a dependency relationship, to use a interface in a emulator program, its dependency interface must be used as well,
-        their relationship is shown in Figure 5.
-        \begin{figure}[!htbp]
-            \centering
-            \includesvg[width=\textwidth]{\figpath interface_relation.svg}
-            \caption{Top level interfaces relations of MEME}
-            \label{fig:fig5}
-        \end{figure}
-
-        IObj, IRule and IMem are defined in the scheme shown in Fig 6 and Fig 7.
+        Objects, rules and membranes are defined in the scheme shown in Figure 4 and Figure 5. Note that, different form its logical structure, instances of objects and rules 
+        can be stored outside of a membrane instance or inside of its properties.
         \begin{figure}[!htbp]
             \centering
             \includesvg{\figpath obj.svg}
             \caption{IObj, IRule and IMem interfaces}
-            \label{fig:fig6}
+            \label{fig:fig4}
         \end{figure}
         \begin{figure}[!htbp]
             \centering
             \includesvg[width=\textwidth]{\figpath rule_mem.svg}
             \caption{IObj, IRule and IMem interfaces}
-            \label{fig:fig7}
+            \label{fig:fig5}
         \end{figure}
 
+        Top level interfaces have a dependency relationship, to include a interface in a emulator program, its dependency interface must be included as well,
+        their relationship is shown in Figure 6.
+        \begin{figure}[!htbp]
+            \centering
+            \includesvg[width=\textwidth]{\figpath interface_relation.svg}
+            \caption{Top level interfaces relations of MEME}
+            \label{fig:fig6}
+        \end{figure}
+
+        By using the default modules provided by MEME, a minimal emulator program with one membrane and several objects is written as in 
+        Listing 1.
+        
+        \begin{minipage}{\textwidth}
+            \centering
+            \lstinputlisting[language=C++, caption=Code of a minimal emulator program]{\codepath minimal_sys.rs}
+        \end{minipage}
+
         \subsubsection{System architecture}
-        The architecture diagram of a typical emulator system implemented with MEME is shown in Figure 8.
+        The architecture diagram of a typical emulator system implemented with MEME is shown in Figure 7.
         \begin{figure}[!htbp]
             \centering
             \includesvg[width=\textwidth]{\figpath sys_arch.svg}
             \caption{Architecture diagram of MEME}
-            \label{fig:fig8}
+            \label{fig:fig7}
         \end{figure}
 
     \subsection{Versatility of MEME}

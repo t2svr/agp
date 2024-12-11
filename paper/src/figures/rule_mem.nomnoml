@@ -33,12 +33,8 @@
 ]
 
 [Membrane|
-  [Type parameters|
-    ObjType: Clone + Hash + Eq; ObjUnit: Scalar; Condition; Effect;
-  ]|
-  getConditon(); getEffect();|
+  start(); run(); ready(); evolve();|
   [Properties|
-    ty: TypeId; tg: Tag; amount: Unit;|
     ...Other custom properties...
   ]|
   [AsRefObj|
