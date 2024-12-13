@@ -244,7 +244,6 @@ pub fn effect_empty<RE: IRuleEffect>() -> RE {
     RE::from_builder(None)
 }
 
-
 // todo: 全局tag生成器 -ok
 
 static COUNTER_USIZE: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
@@ -406,6 +405,19 @@ pub fn vec_batch_remove<T>(v: &mut Vec<T>, indexes: &[usize]) -> Vec<Option<T>> 
     }
     v.truncate(v.len() - valied_removed_count);
     ret
+}
+
+#[macro_export]
+macro_rules! untagged {
+    ($ty:ident, $amount:expr) => (
+        (std::any::TypeId::of::<$ty>(), $amount)
+    )
+}
+#[macro_export]
+macro_rules! tagged {
+    ($expression:expr) => (
+        Box::new($expression)
+    )
 }
 
 /* 

@@ -160,7 +160,7 @@ pub trait IRule: IObj {
     type Condition: ICondition<Self::ObjTag, Self::ObjUnit>;
     type Effect: IRuleEffect;
     fn condition(&self) -> &Self::Condition;
-    fn effect(&self) -> &Self::Effect; // todo: 令 Effect 只能修改 Condition 选中的对象
+    fn effect(&self) -> &Self::Effect; // todo: 令 Effect 只能修改 Condition 选中的对象 -ok
 }
 
 /// todo: 保证高效实现下的一致性

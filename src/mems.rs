@@ -6,3 +6,7 @@ pub mod basic;
 pub struct CPUEnvRegion {
     
 }
+
+pub struct GPUEnvRegion {
+    
+}

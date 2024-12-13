@@ -146,6 +146,7 @@ fn criterion_benchmark(c: &mut Criterion<RxxOPS>) {
                     os.push(Box::new(ca));
                     m.init(
                         os,
+                        Default::default(),
                         vec![
                             Box::new(BenchRuleAct::new(helpers::IdGen::next_u32_id(), select_amount)),
                             Box::new(BenchStopRule::new(helpers::IdGen::next_u32_id(), loop_count)),

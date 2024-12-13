@@ -1,0 +1,11 @@
+#fill: #ffffff; #ffffff
+#edges: rounded
+#background: #ffffff
+#leading: 0
+#padding: 0
+#spacing: 40
+#gutter: 1
+#lineWidth: 2
+
+[<start>start] -> [<state>plunder] -> [<choice>more loot] -> [start]
+[more loot] no ->[<end>e]

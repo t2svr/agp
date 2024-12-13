@@ -77,12 +77,15 @@ U: Scalar
         }
     }
 
-    pub fn init(&mut self, mut objs: Vec<PObj<OT, U>>, mut rules: Vec<PBasicRule<RT, OT, U>>) {
-        while let Some(o) = objs.pop() {
+    pub fn init(&mut self, mut tagged: Vec<PObj<OT, U>>, mut untagged: Vec<(TypeId, U)>, mut rules: Vec<PBasicRule<RT, OT, U>>) {
+        while let Some(o) = tagged.pop() {
             self.objs.add_or_update(o.obj_tag().clone(), o);
         }
         while let Some(r) = rules.pop() {
             self.rules.add_or_update(r.obj_tag().clone(), r);
+        }
+        while let Some((ty, amount)) = untagged.pop() {
+            self.objs.increase(&ty, amount);
         }
         self.ready = true;
     }

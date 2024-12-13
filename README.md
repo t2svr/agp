@@ -1,5 +1,5 @@
 Start:
-
+- Optional on Windows: install msvc build tool
 - install rustup
 - install rust-toolchains
 - <code>cargo install cargo-make</code>
@@ -8,7 +8,7 @@ Start:
 - install kroki cli
 - <code>docker pull docker.udayun.com/yuzutech/kroki:latest</code>
 - <code>docker run -p8000:8000 yuzutech/kroki</code>
-- install texlive and install missing packages
+- install texlive and install missing packages (local or docker)
 - <code>cargo make all</code>
 
 编译论文:

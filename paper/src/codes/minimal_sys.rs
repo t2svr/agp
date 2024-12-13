@@ -1,25 +1,20 @@
+use meme::core::*;
+use meme_derive::*;
+use meme::rules::{BasicCondition, BasicEffect};
+use meme::mems::basic::BasicMem;
+use meme::helpers;
+
 // define tagged objects
 #[derive(IObj)]
 struct TA {
     #[tag]
-    tg: i32,
+    tag: i32,
     //define unique properties
-    p_1: f32,
-    p_2: f32,
-}
-impl TA {
-    pub fn new(tag: i32, p: [f32;2]) -> Self {
-        Self { 
-            tg: tag,
-            p_1: p[1], p_2: p[2]
-        } 
-    }
+    p: f32
 }
 
 // define untagged objects
-struct A;
-struct B;
-struct C;
+struct A;struct B;struct C;
 
 // define rules
 #[derive(IObj, IRule)]
@@ -35,8 +30,9 @@ impl MinimalRule {
     pub fn new(tag: u32) -> Self {
         Self {
             tg: tag,
+            //use helpers to construct condition and effect
             cond: helpers::condition_empty(),
-            eff: helpers::effect_empty
+            eff: helpers::effect_empty()
         }
     }
 }
@@ -45,12 +41,9 @@ impl MinimalRule {
 fn main() {
     let mut m = BasicMem::<u32, i32>::new(1, false);
     m.init(
-        vec![
-            Box::new(MinimalTaggedObj::new(2)), 
-        ],
-        vec![
-            Box::new(MinimalRule::new(3)),
-        ]
+        vec![tagged!(TA{ tag:2, p: 1.1 })],
+        vec![untagged!(A, 10), untagged!(B, 20)],
+        vec![tagged!(MinimalRule::new(3))]
     );
     m.start();
 }

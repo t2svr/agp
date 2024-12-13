@@ -1,7 +1,7 @@
 // Copyright 2024 Junshuang Hu
 use std::thread;
 
-use meme::{core::IMem, helpers, mems::basic::BasicMem, objs::com::{ObjChannel, SendMsg, SendWrapper}, rules::{com::SendReceiveRule, BasicCondition, BasicEffect}};
+use meme::{core::IMem, helpers, mems::basic::BasicMem, objs::com::{ObjChannel, SendMsg, SendWrapper}, rules::{com::SendReceiveRule, BasicCondition, BasicEffect}, tagged};
 use meme_derive::*;
 use crate::{objs::{TestObjA, TestObjB}, rules::{TestRuleA, TestRuleB, TestRuleC, TestRuleD}};
 
@@ -82,18 +82,19 @@ pub fn basics() {
     let (ca, cb) = ObjChannel::<i32>::new_pair(ids[2], ids[3]);
     m.init(
         vec![
-            Box::new(TestObjA::new(ids[0], 1.1)), 
-            Box::new(TestObjA::new(ids[1], 2.2)),
-            Box::new(ca)
+            tagged!(TestObjA::new(ids[0], 1.1)), 
+            tagged!(TestObjA::new(ids[1], 2.2)),
+            tagged!(ca)
         ],
+        Default::default(),
         vec![
-            Box::new(TestRuleA::new(0, ids[0])),
-            Box::new(TestRuleB::new(1)),
-            Box::new(TestRuleStop::new(2)),
-            Box::new(SendReceiveRule::new(3, vec![ids[2]])),
-            Box::new(TestComRule::new(4, ids[2])),
-            Box::new(TestRuleC::new(5)),
-            Box::new(TestRuleD::new(6))
+            tagged!(TestRuleA::new(0, ids[0])),
+            tagged!(TestRuleB::new(1)),
+            tagged!(TestRuleStop::new(2)),
+            tagged!(SendReceiveRule::new(3, vec![ids[2]])),
+            tagged!(TestComRule::new(4, ids[2])),
+            tagged!(TestRuleC::new(5)),
+            tagged!(TestRuleD::new(6))
         ]
     );
 

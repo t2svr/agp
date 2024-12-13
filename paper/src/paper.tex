@@ -576,19 +576,42 @@
             
     \section{High efficiency emulation for augmented general P system}
 
-    For the requirement of fast and general emulation for P systems, a emulation library Membrane Emulation Lib (MEME for short) is designed and implemented based on the augmented general P system framework.
+    For the requirement of fast and general emulation for P systems, a emulation library Membrane Emulation Lib (MEME for short) 
+    is designed and implemented based on the augmented general P system framework.
 
-    The current emulation tools take a approach of using a intermediate language, like p-lingua, to describe a P system and compile it into a emulation program, or use it as interpreted language to drive the emulator. 
+    The current emulation tools take a approach of using a intermediate language, like p-lingua, 
+    to describe a P system and compile it into a emulation program, or use it as interpreted language to drive the emulator. 
     
-    This brings convince for the emulation of the P systems that the intermediate language supports, but when facing a P system that the intermediate language cannot describe, the intermediate language along with its compiler and emulator or the emulation library need to be expanded to adapt the novel system, because the language level of the intermediate language is not high enough.
+    This brings convince for the emulation of the P systems that the intermediate language supports, 
+    since these languages are closer to the mathematical definition of P systems in their forms.
 
-    The structure of the augmented general P system gives a benefit of using mappings to describe the feature of each P systems, these mappings can be implemented directly with modern program languages. Hence, not like the current emulation tools, MEME dose not requires a intermediate language to describe a P system, all code is written with program language, therefore MEME can be used to implement more P systems without the update to the library itself.
+    When facing a P system that the intermediate language cannot describe, however,
+    the intermediate language along with its compiler and emulator, or the emulation library, need to be modified to adapt the novel system.
 
-    Another main benefit of MEME is its efficiency. With compiled language Rust and multi-thread design, MEME delivers a more efficient program, the implemented P system can be compiled into executable on various platforms.
+    MEME chosed another approach by sacrificing the simplicity of expression, confine the way of defining P systems, to expand the range of systems that
+     it can implement.
+
+    The structure of the augmented general P system gives a benefit of using mappings to describe the feature of each P system, 
+    these mappings can be implemented directly with modern program languages. Hence, not like the current emulation tools,
+     MEME dose not requires a intermediate language to describe a P system, all code is written with program language, 
+     therefore MEME can be used to implement more P systems without the update to the library itself.
+
+    Another main benefit of MEME is its efficiency. With compiled language Rust and multi-thread design,
+     MEME delivers a more efficient program,
+      the implemented P system can be compiled into executable on various compatible platforms without the lose of performance.
 
     \subsection{Structure of MEME}
-    MEME is designed to be a modular library, interfaces between modules and default modules are provided. 
-    Modules of MEME can be combined with custom modules to expand the function of MEME or to optimize the performance. 
+    MEME is designed to be a modular library, interfaces of modules and default modules are provided. 
+    Modules implemented corresponding interfaces can be combined together to form a emulation program.
+    Modules of MEME can be combined with custom modules to expand the function of MEME or to optimize the performance.
+    
+    The structure of MEME is as shown in Fig 4. 
+    \begin{figure}[!htbp]
+        \centering
+        \includesvg[width=\textwidth]{\figpath meme_structure.svg}
+        \caption{Structure diagram of MEME}
+        \label{fig:fig4}
+    \end{figure}
 
         \subsubsection{Top level interfaces}
         Objects, rules and membranes are three most important things of a AGP system, they are abstracted into three interfaces: IObj, IRule and IMem.
@@ -597,51 +620,60 @@
         Similarly, interface IRuleStore and IRuleStat are used for the storage and the statistic of rules in the membrane. 
         These interfaces are the top level interfaces of MEME.
 
-        Objects, rules and membranes are defined in the scheme shown in Figure 4 and Figure 5. Note that, different form its logical structure, instances of objects and rules 
+        Objects, rules and membranes are defined in the scheme shown in Figure 5 and Figure 6. Note that, different from its logical structure, instances of objects and rules 
         can be stored outside of a membrane instance or inside of its properties.
         \begin{figure}[!htbp]
             \centering
             \includesvg{\figpath obj.svg}
-            \caption{IObj, IRule and IMem interfaces}
-            \label{fig:fig4}
+            \caption{Objects models}
+            \label{fig:fig5}
         \end{figure}
         \begin{figure}[!htbp]
             \centering
             \includesvg[width=\textwidth]{\figpath rule_mem.svg}
-            \caption{IObj, IRule and IMem interfaces}
-            \label{fig:fig5}
+            \caption{Rule and membrane models}
+            \label{fig:fig6}
         \end{figure}
 
         Top level interfaces have a dependency relationship, to include a interface in a emulator program, its dependency interface must be included as well,
-        their relationship is shown in Figure 6.
+        their relationship is shown in Figure 7.
         \begin{figure}[!htbp]
             \centering
             \includesvg[width=\textwidth]{\figpath interface_relation.svg}
             \caption{Top level interfaces relations of MEME}
-            \label{fig:fig6}
+            \label{fig:fig7}
+        \end{figure}
+    
+        \subsubsection{System architecture}
+        MEME does not provide a fixed program structure for emulators, it only contains a set of convinct modules for implementing AGP systems.
+        By only using MEME modules, the flowchart of a emulator program is shown in Figure 8.
+        \begin{figure}[!htbp]
+            \centering
+            \includesvg{\figpath process.svg}
+            \caption{Flowchart of a MEME based emulator program}
+            \label{fig:fig8}
         \end{figure}
 
-        By using the default modules provided by MEME, a minimal emulator program with one membrane and several objects is written as in 
-        Listing 1.
-        
-        \begin{minipage}{\textwidth}
-            \centering
-            \lstinputlisting[language=C++, caption=Code of a minimal emulator program]{\codepath minimal_sys.rs}
-        \end{minipage}
-
-        \subsubsection{System architecture}
-        The architecture diagram of a typical emulator system implemented with MEME is shown in Figure 7.
+        The architecture diagram of a typical emulator system implemented with MEME is shown in Figure 9.
         \begin{figure}[!htbp]
             \centering
             \includesvg[width=\textwidth]{\figpath sys_arch.svg}
-            \caption{Architecture diagram of MEME}
-            \label{fig:fig7}
+            \caption{Architecture diagram of MEME based emulator system}
+            \label{fig:fig9}
         \end{figure}
 
-    \subsection{Versatility of MEME}
+        \subsubsection{Code Example}
+        By using the default modules provided by MEME, a simple emulator program with one membrane is written as in Listing 1.
+        
+        % \begin{minipage}{\textwidth}
+        %     \centering
+        \lstinputlisting[float, language=C++, caption=Code of a simple emulator program]{\codepath minimal_sys.rs}
+        %\end{minipage}
+
+    \subsection{Preconditions of using MEME}
     To use MEME, a P system $sys$ must satisfy the following requirements:
     \begin{itemize}
-        \item $sys$ is defined or has a equivalent definition as a augmented general P system.
+        \item $sys$ is fully or partially defined, or has a equivalent definition, as a augmented general P system.
         \item The feature and effect mappings of $sys$ can be implemented with high-level programming language.
     \end{itemize}
 
